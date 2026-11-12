@@ -99,7 +99,14 @@ void main() {
     expect(backupEntries(), isEmpty);
   });
 
-  test('git stops midway: the message has the backup id and a --to restore that brings the work back',
+  // 같은 상황을 두 방식으로 만든다: 하위 폴더 ro/ 만 막기, 맨 위 폴더 전체 막기.
+  // 맨 위를 막으면 git 이 맨 위 파일을 하나도 못 지우므로 어느 OS 에서나 거의 아무것도 안 지워진다.
+  final blockers = <String, void Function(String)>{
+    'read-only subfolder': (path) => readOnly('$path/ro'),
+    'read-only top folder': readOnly,
+  };
+  for (final blocker in blockers.entries) {
+  test('git stops midway (${blocker.key}): the message has the backup id and a --to restore that brings the work back',
       () async {
     final (repo, wt) = await staleWorktree('root/app', 'root/wt/work', 'work', dirty: true);
     final statusBefore = await fx.gitOut(wt, ['status', '--porcelain=v1', '--untracked-files=all']);
@@ -111,7 +118,7 @@ void main() {
       ['scan', '--root', '${fx.base}/root', '--apply', '--backup-dir', fx.backups, '--log', logFile],
       // 사전 확인이 끝난 뒤, git 이 지우기 직전에 하위 폴더를 읽기 전용으로 바꾼다
       // (사전 확인 뒤에 다른 프로그램이 권한을 바꾼 상황) — git 은 일부만 지우고 멈춘다.
-      beforeRemove: (path) => readOnly('$path/ro'),
+      beforeRemove: blocker.value,
     );
     if (runningAsRoot) return;
 
@@ -119,7 +126,8 @@ void main() {
     // git 이 관리 기록을 지우고 폴더 일부를 남겼다(이 테스트가 만들려는 상황인지 먼저 확인).
     expect(await fx.porcelain(repo), isNot(contains('worktree $wt\x00')));
     expect(Directory(wt).existsSync(), isTrue);
-    expect(File('$wt/z.txt').existsSync(), isFalse, reason: 'git deleted part of the folder');
+    // 어떤 파일이 먼저 지워졌는지는 git 의 readdir 순서(OS·파일 시스템마다 다름)에 달려 있어 단언하지 않는다.
+    expect(File('$wt/ro/a.txt').existsSync(), isTrue, reason: 'the read-only folder blocks its own files');
 
     final ids = backupEntries().map((e) => e.uri.pathSegments.where((s) => s.isNotEmpty).last).toList();
     expect(ids, hasLength(1), reason: 'the verified backup is kept');
@@ -157,6 +165,7 @@ void main() {
     expect(File('$target/new.txt').readAsStringSync(), 'untracked work\n');
     expect(File('$target/ro/a.txt').readAsStringSync(), 'tracked in a folder\n');
   });
+  }
 
   test('git refuses without deleting: still listed, files intact, backup id reported and kept',
       () async {

@@ -35,6 +35,14 @@ void main() {
     expect(verdict('/worktrees/gone'), 'prune(missing_dir)');
     expect((json['worktrees'] as List).length, 6);
 
+    // 출력 순서는 OS 와 무관하다: 메인 먼저, 나머지는 경로순(git 의 나열 순서에 기대지 않는다).
+    final paths = (json['worktrees'] as List<Object?>)
+        .cast<Map<String, Object?>>()
+        .map((w) => w['path'] as String)
+        .toList();
+    expect(paths.first, endsWith('/demo-app'));
+    expect(paths.skip(1).toList(), [...paths.skip(1)]..sort());
+
     // 미리보기 표도 한 번 더 돌려 본다(역시 아무것도 바꾸지 않아야 한다).
     final table = await fx.cli(['scan', '--root', sb]);
     expect(table.code, 0);
