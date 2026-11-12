@@ -1,0 +1,24 @@
+name: worktree_shelve
+description: >-
+  Finds stale git worktrees (old last commit AND old file edits), backs up
+  uncommitted changes, untracked files and ignored config such as .env,
+  verifies the backup, removes the worktree and restores it with one command.
+version: 0.1.0
+repository: https://github.com/LeeGyeongPil/worktree-shelve
+issue_tracker: https://github.com/LeeGyeongPil/worktree-shelve/issues
+topics:
+  - git
+  - worktree
+  - cli
+  - backup
+  - cleanup
+
+environment:
+  sdk: ^3.8.0
+
+executables:
+  worktree-shelve: worktree_shelve
+
+dev_dependencies:
+  lints: 6.1.0
+  test: 1.31.0
