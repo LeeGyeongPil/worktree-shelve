@@ -1,0 +1,26 @@
+# 실제 git 으로 임시 저장소를 만들어 전체 흐름(판정·백업·제거·복원)을 검증한다.
+# 외부 서비스·키가 필요 없어 목 모드가 따로 없다. macOS(BSD tar)·Linux(GNU tar) 두 곳에서 돌린다.
+name: ci
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"   # 매주 월요일 — SDK·git 이 바뀌어 깨지지 않았는지 정기 확인
+  workflow_dispatch:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: dart-lang/setup-dart@v1.8.2
+        with:
+          sdk: 3.8.1
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart test
+      - name: First run (sandbox preview)
+        run: dart run worktree_shelve sandbox "$RUNNER_TEMP/shelve-sandbox"
