@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.1.0';
+const toolVersion = '0.1.1';
 
 class CliContext {
   CliContext({
@@ -311,7 +311,7 @@ Future<int> _scan(List<String> args, CliContext ctx, Messages m,
     };
     final ShelveError line;
     if (failure.key == 'fail.remove_partial') {
-      // git 이 기록을 지우고 폴더 일부를 지웠다 — 다음 scan 에는 안 보이므로 여기서 복원 방법을 다 알려 준다.
+      // git 이 기록을 지웠고 폴더 일부가 지워졌을 수 있다 — 다음 scan 에는 안 보이므로 여기서 복원 방법을 다 알려 준다.
       line = ShelveError('item.partial', {
         'path': shown,
         'why': failure,

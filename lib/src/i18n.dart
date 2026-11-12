@@ -157,7 +157,7 @@ const Map<String, String> _en = {
   'fail.not_removable':
       'cannot delete everything: {path} is read-only or owned by another user (fix it with chmod -R u+w {path}, or chown if another user created it)',
   'fail.remove_partial':
-      'git stopped midway ({why}); it dropped the worktree record and deleted part of the folder',
+      'git stopped midway ({why}); it dropped the worktree record and may have deleted part of the folder',
   'fail.backup_write': 'could not write the backup ({why})',
   'fail.verify': 'backup check failed ({what})',
   'fail.changed': 'the worktree changed while it was being backed up',
@@ -281,7 +281,7 @@ const Map<String, String> _ko = {
   'hint.new_path': '새-경로',
   'fail.not_removable':
       '끝까지 지울 수 없습니다: {path} 가 읽기 전용이거나 다른 사용자 소유입니다(chmod -R u+w {path} 로 고치거나, 다른 사용자가 만든 폴더면 chown)',
-  'fail.remove_partial': 'git 이 도중에 멈췄습니다({why}). 워크트리 기록을 지우고 폴더 일부를 지웠습니다',
+  'fail.remove_partial': 'git 이 도중에 멈췄습니다({why}). 워크트리 기록을 지웠고 폴더 일부가 지워졌을 수 있습니다',
   'fail.backup_write': '백업을 쓰지 못했습니다({why})',
   'fail.verify': '백업 검증에 실패했습니다({what})',
   'fail.changed': '백업하는 동안 워크트리가 바뀌었습니다',

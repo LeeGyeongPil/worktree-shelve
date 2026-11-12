@@ -119,7 +119,11 @@ Future<List<Assessment>> assessRepo(Git git, String repo, ScanOptions opt) async
       _keep(a, 'scan_error', {'why': e.osError?.message ?? e.message});
     }
   }
-  return out;
+  // git 은 .git/worktrees 를 readdir 순서로 나열하므로 OS 마다 다르다.
+  // 메인 워크트리를 먼저, 나머지는 경로순으로 정렬해 출력 순서를 고정한다.
+  final main = out.isEmpty ? <Assessment>[] : [out.first];
+  final rest = out.skip(1).toList()..sort((x, y) => x.path.compareTo(y.path));
+  return [...main, ...rest];
 }
 
 void _keep(Assessment a, String reason, [Map<String, Object?> params = const {}]) {
