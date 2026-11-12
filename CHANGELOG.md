@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.1 (2026-11-12)
+
+- Fixed: tests no longer depend on the order in which git deletes files or lists worktrees
+  (differs between macOS and Linux); the "git stopped midway" test now also covers a
+  read-only top folder.
+- Changed: `scan` output is deterministic everywhere: the main worktree first, the rest sorted by path.
+- Changed: the "git stopped midway" message now says the folder "may have" been partly deleted
+  (git may have deleted nothing).
+- CI: prints tool versions before the tests; test timeout doubled (`dart_test.yaml`).
+- Added a portability test (no OS-specific paths, no global git config assumptions).
+
+### Known issues
+
+- If stdout is closed early (`... | head -1`), the raw `FileSystemException ... Broken pipe`
+  message and exit code 0 appear on every run, not only depending on timing (0.1.0 notes corrected).
+- A file name with a newline makes the backup check fail; nothing is deleted, but the message
+  does not name the newline as the reason.
+- Run as root, the two "git stops midway" tests return early and show as passed, not skipped.
+
 ## 0.1.0 (2026-11-12)
 
 - `scan`: find worktrees under `--root`, judge each one with a dual staleness check
