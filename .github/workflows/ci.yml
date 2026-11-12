@@ -21,6 +21,13 @@ jobs:
           sdk: 3.8.1
       - run: dart pub get
       - run: dart analyze --fatal-infos
+      - name: Tool versions
+        run: |
+          dart --version
+          git --version
+          tar --version | head -n 1
+          uname -a
+          id -u
       - run: dart test
       - name: First run (sandbox preview)
         run: dart run worktree_shelve sandbox "$RUNNER_TEMP/shelve-sandbox"
