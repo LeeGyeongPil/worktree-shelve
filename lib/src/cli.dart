@@ -8,7 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'apply.dart';
-import 'backup.dart' show isValidBackupId;
+import 'backup.dart' show isGeneratedBackupId, isValidBackupId;
 import 'discover.dart';
 import 'errors.dart';
 import 'git.dart';
@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.1.3';
+const toolVersion = '0.2.0';
 
 class CliContext {
   CliContext({
@@ -451,7 +451,11 @@ Future<int> _restore(List<String> args, CliContext ctx, Messages m) async {
   final id = p.positional.first;
   final backupRoot = _backupRoot(p, ctx);
   // ID·백업 존재는 git 을 찾기 전에 확인한다(가장 흔한 실수를 먼저 알려 준다).
-  readManifest(backupRoot, id);
+  try {
+    readManifest(backupRoot, id);
+  } on ShelveError catch (e) {
+    throw ShelveError(e.key, {...e.params, 'list': _listHint(p, ctx)}, e.exitCode);
+  }
   final git = await Git.locate(ctx.env);
   final tar = Tar.locate(ctx.env);
   final to = p.values['--to'];
@@ -471,87 +475,301 @@ Future<int> _restore(List<String> args, CliContext ctx, Messages m) async {
     ctx.out.writeln(m.t('restore.moved',
         {'branch': r.branch, 'sha': r.head.substring(0, 12), 'path': shown}));
   }
-  ctx.out.writeln(m.t('restore.kept', {'dir': displayPath('$backupRoot/$id', home: home)}));
+  ctx.out.writeln(m.t('restore.kept', {'dir': displayPath('$backupRoot/$id', home: home), 'id': id}));
   return 0;
 }
 
 // ---------------------------------------------------------------- backups
 
 Future<int> _backups(List<String> args, CliContext ctx, Messages m) async {
-  final p = _parse('backups', args, valueOpts: {'--backup-dir'}, flagOpts: {'--json'});
+  final p = _parse('backups', args,
+      valueOpts: {'--backup-dir', '--delete', '--prune-older-than'},
+      flagOpts: {'--json', '--apply'});
   if (p.positional.isNotEmpty) {
     throw ShelveError('err.extra_arg', {'cmd': 'backups', 'arg': p.positional.first});
   }
-  final root = _backupRoot(p, ctx);
-  final home = ctx.env['HOME'];
-  final entries = <Map<String, Object?>>[];
-  final dir = Directory(root);
-  if (dir.existsSync()) {
-    final names = dir
-        .listSync(followLinks: false)
-        .whereType<Directory>()
-        .map((d) => d.path.substring(d.path.lastIndexOf('/') + 1))
-        .where(isValidBackupId) // .partial(만들다 만 것)은 이름 규칙에 맞지 않아 빠진다
-        .toList()
-      ..sort();
-    for (final id in names) {
-      Map<String, Object?> mf;
-      try {
-        mf = readManifest(root, id);
-      } on ShelveError {
-        continue;
-      }
-      var size = 0;
-      for (final f in Directory('$root/$id').listSync().whereType<File>()) {
-        size += f.lengthSync();
-      }
-      final files = ((mf['untracked'] as List<Object?>?) ?? const []).length +
-          ((mf['ignored'] as List<Object?>?) ?? const []).length;
-      final branch = mf['branch'] as String?;
-      entries.add({
-        'id': id,
-        'branch': branch?.startsWith('refs/heads/') == true ? branch!.substring(11) : branch,
-        'head': mf['head'],
-        'repo': mf['repo'],
-        'worktree': mf['worktree'],
-        'created_at': mf['created_at'],
-        'files': files,
-        'size_bytes': size,
-        'pinned_ref': mf['pinned_ref'],
-        'restore_command': _restoreHint(id, p, ctx),
-      });
-    }
+  final deleteId = p.values['--delete'];
+  final pruneRaw = p.values['--prune-older-than'];
+  if (deleteId != null && pruneRaw != null) {
+    throw ShelveError('err.backups_conflict');
   }
+  if (p.flags.contains('--apply') && pruneRaw == null) {
+    throw ShelveError('err.apply_needs_prune');
+  }
+  final root = _backupRoot(p, ctx);
+  if (deleteId != null) return _deleteBackup(root, deleteId, p, ctx, m);
+  if (pruneRaw != null) return _pruneBackups(root, _int(p, '--prune-older-than', 0, 0), p, ctx, m);
+
+  final home = ctx.env['HOME'];
+  final entries = _listBackups(root);
+  final partial = _listPartials(root);
 
   if (p.flags.contains('--json')) {
-    ctx.out.writeln(const JsonEncoder.withIndent('  ')
-        .convert({'backup_dir': root, 'backups': entries}));
+    ctx.out.writeln(const JsonEncoder.withIndent('  ').convert({
+      'backup_dir': root,
+      'backups': [for (final e in entries) _entryJson(e, p, ctx)],
+      // 기존 출력과 같게: 미완성 폴더가 있을 때만 키를 더한다.
+      if (partial.isNotEmpty) 'partial': _partialJson(partial),
+    }));
     return 0;
   }
   if (entries.isEmpty) {
     ctx.out.writeln(m.t('backups.none', {'dir': displayPath(root, home: home)}));
+  } else {
+    ctx.out.writeln(m.t('backups.header', {'dir': displayPath(root, home: home)}));
+    final rows = [
+      for (final e in entries)
+        [
+          e.id,
+          e.branch ?? m.t('branch.detached'),
+          _shortTime(e.createdAt),
+          displayPath(e.worktree, root: canonicalPath(ctx.cwd), home: home),
+          '${e.files}',
+          formatSize(e.sizeBytes),
+        ]
+    ];
+    ctx.out.writeln(renderTable([
+      m.t('col.id'),
+      m.t('col.branch'),
+      m.t('col.created'),
+      m.t('col.worktree'),
+      m.t('col.files'),
+      m.t('col.size'),
+    ], rows));
+  }
+  _printPartials(partial, ctx, m);
+  return 0;
+}
+
+/// 백업 한 건의 요약(목록·정리 공용).
+class _Entry {
+  _Entry(this.id, this.mf, this.sizeBytes);
+  final String id;
+  final Map<String, Object?> mf;
+  final int sizeBytes;
+
+  String? get createdAt => mf['created_at'] as String?;
+  String get worktree => (mf['worktree'] as String?) ?? '-';
+  String? get branch {
+    final b = mf['branch'] as String?;
+    return b?.startsWith('refs/heads/') == true ? b!.substring(11) : b;
+  }
+
+  int get files =>
+      ((mf['untracked'] as List<Object?>?) ?? const []).length +
+      ((mf['ignored'] as List<Object?>?) ?? const []).length;
+}
+
+/// 폴더 안 파일 크기 합(링크는 따라가지 않는다).
+int _dirSize(String path) {
+  var size = 0;
+  try {
+    for (final f in Directory(path).listSync(recursive: true, followLinks: false).whereType<File>()) {
+      size += f.lengthSync();
+    }
+  } on FileSystemException {
+    // 읽을 수 없는 부분은 크기에서 뺀다.
+  }
+  return size;
+}
+
+/// 백업 루트 바로 아래의 진짜 폴더 이름들(심볼릭 링크 제외).
+List<String> _childDirNames(String root) {
+  final dir = Directory(root);
+  if (!dir.existsSync()) return [];
+  return dir
+      .listSync(followLinks: false)
+      .whereType<Directory>()
+      .map((d) => d.path.substring(d.path.lastIndexOf('/') + 1))
+      .toList()
+    ..sort();
+}
+
+/// manifest 가 읽히는 유효 백업만(깨진 것·이름 규칙에 안 맞는 것은 뺀다).
+List<_Entry> _listBackups(String root) {
+  final out = <_Entry>[];
+  for (final id in _childDirNames(root).where(isValidBackupId)) {
+    try {
+      out.add(_Entry(id, readManifest(root, id), _dirSize('$root/$id')));
+    } on ShelveError {
+      continue;
+    }
+  }
+  return out;
+}
+
+/// 만들다 만 `<id>.partial` 폴더.
+List<({String name, String path, int sizeBytes})> _listPartials(String root) => [
+      for (final n in _childDirNames(root))
+        if (n.endsWith('.partial') && isValidBackupId(n.substring(0, n.length - 8)))
+          (name: n, path: '$root/$n', sizeBytes: _dirSize('$root/$n')),
+    ];
+
+Map<String, Object?> _entryJson(_Entry e, _Args p, CliContext ctx) => {
+      'id': e.id,
+      'branch': e.branch,
+      'head': e.mf['head'],
+      'repo': e.mf['repo'],
+      'worktree': e.mf['worktree'],
+      'created_at': e.createdAt,
+      'files': e.files,
+      'size_bytes': e.sizeBytes,
+      'pinned_ref': e.mf['pinned_ref'],
+      'restore_command': _restoreHint(e.id, p, ctx),
+    };
+
+List<Map<String, Object?>> _partialJson(List<({String name, String path, int sizeBytes})> partial) =>
+    [for (final x in partial) {'name': x.name, 'path': x.path, 'size_bytes': x.sizeBytes}];
+
+void _printPartials(List<({String name, String path, int sizeBytes})> partial, CliContext ctx, Messages m) {
+  if (partial.isEmpty) return;
+  final home = ctx.env['HOME'];
+  ctx.out.writeln();
+  ctx.out.writeln(m.t('backups.partial_header'));
+  for (final x in partial) {
+    ctx.out.writeln(m.t('backups.partial_item',
+        {'path': displayPath(x.path, home: home), 'size': formatSize(x.sizeBytes)}));
+  }
+}
+
+/// 정리·삭제 공통 검사: 이 도구가 만든 이름 꼴이고 manifest 의 id 가 폴더 이름과 같아야 지운다.
+bool _isOwnBackup(String id, Map<String, Object?> mf) => isGeneratedBackupId(id) && mf['id'] == id;
+
+/// 안내 문구의 `{list}` 에 쓸 목록 명령(--backup-dir 를 줬으면 그대로 붙인다).
+String _listHint(_Args p, CliContext ctx) {
+  final custom = p.values['--backup-dir'];
+  return custom == null ? 'worktree-shelve backups' : 'worktree-shelve backups --backup-dir ${_abs(custom, ctx)}';
+}
+
+/// 백업 폴더 하나를 지운다. manifest 는 맨 마지막에 지워서, 중간에 실패해도 목록·--delete 로 다시 다룰 수 있다.
+/// 지우기 전에 백업 루트에 쓸 수 있는지 먼저 확인해 부분 삭제를 피한다.
+void _removeBackup(String root, String id, int done) {
+  ShelveError failure(Object why) => ShelveError('err.backup_delete_failed', {
+        'id': id,
+        'dir': root,
+        'why': why is FileSystemException ? (why.osError?.message ?? why.message) : '$why',
+        'done': done,
+      });
+  try {
+    final probe = File('$root/.delete-check-$pid');
+    probe.writeAsStringSync('ok', flush: true);
+    probe.deleteSync();
+    final dir = Directory('$root/$id');
+    for (final e in dir.listSync(followLinks: false)) {
+      if (e.path.endsWith('/manifest.json')) continue;
+      e.deleteSync(recursive: true);
+    }
+    File('$root/$id/manifest.json').deleteSync();
+    dir.deleteSync();
+  } on FileSystemException catch (e) {
+    throw failure(e);
+  }
+}
+
+/// `backups --delete <id>`: 단일 ID 지정이 곧 확인이다. 검증을 모두 통과한 폴더만 지운다.
+int _deleteBackup(String root, String id, _Args p, CliContext ctx, Messages m) {
+  try {
+    return _deleteBackupChecked(root, id, p, ctx, m);
+  } on ShelveError catch (e) {
+    if (e.params.containsKey('list')) rethrow;
+    throw ShelveError(e.key, {...e.params, 'list': _listHint(p, ctx)}, e.exitCode);
+  }
+}
+
+int _deleteBackupChecked(String root, String id, _Args p, CliContext ctx, Messages m) {
+  if (!isValidBackupId(id)) throw ShelveError('err.backup_bad_id', {'id': id});
+  final path = '$root/$id';
+  // 링크는 따라가지 않는다: 루트 바로 아래의 진짜 폴더여야 한다.
+  switch (FileSystemEntity.typeSync(path, followLinks: false)) {
+    case FileSystemEntityType.directory:
+      break;
+    case FileSystemEntityType.notFound:
+      throw ShelveError('err.backup_not_found', {'id': id, 'dir': root});
+    default:
+      throw ShelveError('err.backup_not_dir', {'id': id, 'dir': root});
+  }
+  if (!File('$path/manifest.json').existsSync()) {
+    throw ShelveError('err.backup_no_manifest', {'id': id, 'dir': path});
+  }
+  final Map<String, Object?> mf;
+  try {
+    mf = readManifest(root, id); // 깨진 manifest 면 종료 코드 2
+  } on ShelveError catch (e) {
+    if (e.key != 'err.backup_damaged') rethrow;
+    throw ShelveError('err.backup_damaged_delete', e.params, e.exitCode);
+  }
+  if (!_isOwnBackup(id, mf)) throw ShelveError('err.backup_bad_name', {'id': id, 'dir': root});
+  final size = _dirSize(path);
+  _removeBackup(root, id, 0);
+  if (p.flags.contains('--json')) {
+    ctx.out.writeln(const JsonEncoder.withIndent('  ').convert({
+      'backup_dir': root,
+      'deleted': {'id': id, 'size_bytes': size},
+    }));
+  } else {
+    ctx.out.writeln(m.t('backups.deleted', {'id': id, 'size': formatSize(size)}));
+  }
+  return 0;
+}
+
+/// `backups --prune-older-than N [--apply]`: 기본은 미리보기. created_at 이 N일보다 오래된 백업만 대상.
+int _pruneBackups(String root, int days, _Args p, CliContext ctx, Messages m) {
+  final apply = p.flags.contains('--apply');
+  final cutoff = ctx.now().toUtc().subtract(Duration(days: days));
+  final targets = <_Entry>[];
+  for (final e in _listBackups(root)) {
+    final created = DateTime.tryParse(e.createdAt ?? '');
+    if (!_isOwnBackup(e.id, e.mf)) continue; // 이름 꼴·manifest id 가 안 맞으면 지우지 않는다
+    if (created == null) continue; // 날짜를 못 읽으면 지우지 않는다
+    if (created.isBefore(cutoff)) targets.add(e);
+  }
+  final partial = _listPartials(root);
+  final deleted = <String>{};
+  if (apply) {
+    for (final e in targets) {
+      _removeBackup(root, e.id, deleted.length);
+      deleted.add(e.id);
+    }
+  }
+  final total = targets.fold<int>(0, (s, e) => s + e.sizeBytes);
+
+  if (p.flags.contains('--json')) {
+    ctx.out.writeln(const JsonEncoder.withIndent('  ').convert({
+      'backup_dir': root,
+      'older_than_days': days,
+      'applied': apply,
+      'backups': [
+        for (final e in targets)
+          {
+            'id': e.id,
+            'created_at': e.createdAt,
+            'size_bytes': e.sizeBytes,
+            'deleted': deleted.contains(e.id),
+          }
+      ],
+      'partial': _partialJson(partial),
+      'totals': {'count': targets.length, 'size_bytes': total},
+    }));
     return 0;
   }
-  ctx.out.writeln(m.t('backups.header', {'dir': displayPath(root, home: home)}));
-  final rows = [
-    for (final e in entries)
-      [
-        e['id'] as String,
-        (e['branch'] as String?) ?? m.t('branch.detached'),
-        _shortTime(e['created_at'] as String?),
-        displayPath(e['worktree'] as String, root: canonicalPath(ctx.cwd), home: home),
-        '${e['files']}',
-        formatSize(e['size_bytes'] as int),
-      ]
-  ];
-  ctx.out.writeln(renderTable([
-    m.t('col.id'),
-    m.t('col.branch'),
-    m.t('col.created'),
-    m.t('col.worktree'),
-    m.t('col.files'),
-    m.t('col.size'),
-  ], rows));
+
+  final home = ctx.env['HOME'];
+  if (targets.isEmpty) {
+    ctx.out.writeln(m.t('prune.none', {'days': days, 'dir': displayPath(root, home: home)}));
+  } else {
+    ctx.out.writeln(m.t('prune.header', {'n': targets.length, 'days': days}));
+    ctx.out.writeln(renderTable([
+      m.t('col.id'),
+      m.t('col.created'),
+      m.t('col.size'),
+    ], [
+      for (final e in targets) [e.id, _shortTime(e.createdAt), formatSize(e.sizeBytes)]
+    ]));
+    ctx.out.writeln();
+    ctx.out.writeln(m.t(apply ? 'prune.done' : 'prune.preview',
+        {'n': targets.length, 'size': formatSize(total), 'dir': displayPath(root, home: home)}));
+  }
+  _printPartials(partial, ctx, m);
   return 0;
 }
 

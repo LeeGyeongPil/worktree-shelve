@@ -34,7 +34,8 @@ class Messages {
     params.forEach((name, value) {
       text = text.replaceAll('{$name}', '${value ?? ''}');
     });
-    return text;
+    // {list}: 목록 명령 안내. 호출 쪽이 --backup-dir 를 붙여 주지 않았으면 기본 형태.
+    return text.replaceAll('{list}', 'worktree-shelve backups');
   }
 }
 
@@ -49,13 +50,15 @@ Usage:
                           [--backup-dir DIR] [--ignored-cap MB] [--lang en|ko]
   worktree-shelve restore <backup-id> [--to PATH] [--backup-dir DIR]
   worktree-shelve backups [--backup-dir DIR] [--json]
+  worktree-shelve backups --delete <backup-id> [--backup-dir DIR] [--json]
+  worktree-shelve backups --prune-older-than N [--apply] [--backup-dir DIR] [--json]
   worktree-shelve sandbox [DIR]
   worktree-shelve --help | --version
 
 Commands:
   scan      Find worktrees and show what would happen. Nothing changes without --apply.
   restore   Recreate a removed worktree from its backup.
-  backups   List backups.
+  backups   List backups, delete one (--delete) or prune old ones (--prune-older-than).
   sandbox   Create a practice repository (default ./shelve-sandbox) and preview it.
 
 Options:
@@ -63,6 +66,7 @@ Options:
   --days N           A worktree is stale when its last commit AND newest file edit
                      are both older than N days (default: 7).
   --apply            Back up, verify, then remove stale worktrees and prune gone ones.
+                     With backups --prune-older-than: really delete the listed backups.
   --json             Print machine-readable JSON instead of a table.
   --log FILE         Append one JSON line per action to FILE.
   --backup-dir DIR   Where backups go (default: \$WORKTREE_SHELVE_BACKUP_DIR,
@@ -70,6 +74,9 @@ Options:
                      ~/.local/state/worktree-shelve/backups).
   --ignored-cap MB   Keep a worktree whose ignored non-build files exceed MB (default: 100).
   --to PATH          Restore into PATH instead of the original location.
+  --delete ID        Delete the backup ID (naming it is the confirmation; it cannot be undone).
+  --prune-older-than N  List backups created more than N days ago (N >= 0). Nothing is deleted
+                     unless --apply is added. Leftover .partial folders are shown, never deleted.
   --lang en|ko       Screen language (also WORKTREE_SHELVE_LANG, LC_ALL, LC_MESSAGES, LANG).
 
 Exit codes: 0 ok, 1 some worktrees failed, 2 usage or setup error.
@@ -84,13 +91,15 @@ worktree-shelve — 오래된 git 워크트리를 백업한 뒤 제거하고, �
                           [--backup-dir 폴더] [--ignored-cap MB] [--lang en|ko]
   worktree-shelve restore <백업-ID> [--to 경로] [--backup-dir 폴더]
   worktree-shelve backups [--backup-dir 폴더] [--json]
+  worktree-shelve backups --delete <백업-ID> [--backup-dir 폴더] [--json]
+  worktree-shelve backups --prune-older-than N [--apply] [--backup-dir 폴더] [--json]
   worktree-shelve sandbox [폴더]
   worktree-shelve --help | --version
 
 명령:
   scan      워크트리를 찾아 무엇을 할지 보여 줍니다. --apply 가 없으면 아무것도 바꾸지 않습니다.
   restore   제거한 워크트리를 백업에서 다시 만듭니다.
-  backups   백업 목록을 보여 줍니다.
+  backups   백업 목록을 보여 주고, 백업 하나를 지우거나(--delete) 오래된 백업을 정리합니다(--prune-older-than).
   sandbox   연습용 저장소(기본 ./shelve-sandbox)를 만들고 미리보기를 보여 줍니다.
 
 옵션:
@@ -98,6 +107,7 @@ worktree-shelve — 오래된 git 워크트리를 백업한 뒤 제거하고, �
   --days 일수         마지막 커밋과 가장 최근 파일 수정이 둘 다 이 일수보다 오래되면
                       오래된 워크트리로 봅니다 (기본: 7).
   --apply             오래된 워크트리를 백업·검증한 뒤 제거하고, 폴더가 없어진 기록을 정리합니다.
+                      backups --prune-older-than 과 함께 쓰면 나열된 백업을 실제로 지웁니다.
   --json              표 대신 기계가 읽는 JSON 을 출력합니다.
   --log 파일          실행한 동작마다 JSON 한 줄을 파일 끝에 덧붙입니다.
   --backup-dir 폴더   백업 위치 (기본: \$WORKTREE_SHELVE_BACKUP_DIR,
@@ -105,6 +115,9 @@ worktree-shelve — 오래된 git 워크트리를 백업한 뒤 제거하고, �
                       ~/.local/state/worktree-shelve/backups).
   --ignored-cap MB    무시된 비산출물 파일 합계가 이 크기를 넘으면 지우지 않고 보존 (기본: 100).
   --to 경로           원래 위치 대신 이 경로에 되살립니다.
+  --delete ID         백업 ID 를 지웁니다(ID 를 직접 적은 것이 확인이며, 되돌릴 수 없습니다).
+  --prune-older-than N  N일보다 오래전에 만든 백업을 나열합니다(N은 0 이상). --apply 를 붙이기 전에는
+                      아무것도 지우지 않습니다. 남은 .partial 폴더는 보여 주기만 하고 지우지 않습니다.
   --lang en|ko        화면 언어 (WORKTREE_SHELVE_LANG, LC_ALL, LC_MESSAGES, LANG 순으로도 정함).
 
 종료 코드: 0 정상, 1 일부 워크트리 실패, 2 사용법·환경 오류.
@@ -122,6 +135,16 @@ const Map<String, String> _en = {
   'err.bad_number': 'option {opt} needs a whole number of at least {min}, got "{value}"',
   'err.bad_lang': 'option --lang accepts en or ko, got "{value}"',
   'err.extra_arg': 'unexpected argument for {cmd}: {arg}',
+  'err.backups_conflict': 'backups: use either --delete or --prune-older-than, not both',
+  'err.apply_needs_prune': 'backups: --apply only works together with --prune-older-than N',
+  'err.backup_not_dir': '{id} in {dir} is not a regular backup folder (a link or a file); nothing was deleted',
+  'err.backup_damaged_delete':
+      'backup {id} is damaged ({why}), so nothing was deleted; check the files in {dir}, then remove that folder yourself if you no longer need it',
+  'err.backup_bad_name':
+      'folder {id} in {dir} is not named like a backup made by this tool (YYYYMMDD-HHMMSS-name) or its manifest id differs; nothing was deleted',
+  'err.backup_delete_failed':
+      'could not delete backup {id} in {dir} ({why}); give the folder write permission (chmod -R u+w {dir}) and run the command again. Deleted before this: {done}',
+  'err.backup_no_manifest': 'folder {dir} has no manifest.json, so it is not treated as a backup; nothing was deleted',
   'err.missing_id': 'restore needs a backup id (list them with: worktree-shelve backups)',
   // 환경 오류
   'err.root_missing': '--root folder does not exist: {path}',
@@ -133,8 +156,8 @@ const Map<String, String> _en = {
       'cannot write to backup folder {path}; give it write permission or choose another with --backup-dir DIR',
   'err.backup_dir_no_home': 'cannot pick a backup folder because HOME is not set; pass --backup-dir DIR',
   'err.log_unwritable': 'cannot write log file {path}; check the folder permissions or choose another --log FILE',
-  'err.backup_not_found': 'no backup named {id} in {dir}; list backups with: worktree-shelve backups',
-  'err.backup_bad_id': '"{id}" is not a valid backup id; list backups with: worktree-shelve backups',
+  'err.backup_not_found': 'no backup named {id} in {dir}; list backups with: {list}',
+  'err.backup_bad_id': '"{id}" is not a valid backup id; list backups with: {list}',
   'err.backup_damaged': 'backup {id} is damaged ({why}); its files are in {dir}',
   'err.restore_target_exists':
       'restore target already exists: {path}; remove it or choose another place with --to PATH',
@@ -223,6 +246,14 @@ const Map<String, String> _en = {
   // backups
   'backups.none': 'No backups in {dir}.',
   'backups.header': 'Backups in {dir}:',
+  'backups.partial_header': 'Leftover unfinished folders (an interrupted backup; this tool does not delete them):',
+  'backups.partial_item': '  {path}  {size}',
+  'backups.deleted': 'Deleted backup {id} ({size}).',
+  'prune.none': 'No backups older than {days} day(s) in {dir}.',
+  'prune.header': '{n} backup(s) older than {days} day(s):',
+  'prune.preview':
+      'Would delete {n} backup(s), {size}. Preview only: nothing was changed. Add --apply to delete.',
+  'prune.done': 'Deleted {n} backup(s), {size}, from {dir}.',
   // restore
   'restore.done':
       'Restored {path} on {branch}: changes {patch}, {u} untracked and {i} ignored file(s) put back.',
@@ -230,7 +261,8 @@ const Map<String, String> _en = {
   'restore.patch_no': 'none',
   'restore.moved':
       'Branch {branch} has moved since the backup, so the worktree was restored at {sha} (detached). Switch with: git -C {path} switch {branch}',
-  'restore.kept': 'The backup stays in {dir}; delete it when you no longer need it.',
+  'restore.kept':
+      'The backup stays in {dir}; delete it when you no longer need it with: worktree-shelve backups --delete {id}',
   'restore.step.add': 'creating the worktree',
   'restore.step.patch': 'applying changes.patch',
   'restore.step.staged': 'restoring staged changes',
@@ -253,6 +285,16 @@ const Map<String, String> _ko = {
   'err.bad_number': '{opt} 옵션은 {min} 이상의 정수여야 합니다. 받은 값: "{value}"',
   'err.bad_lang': '--lang 옵션은 en 또는 ko 만 받습니다. 받은 값: "{value}"',
   'err.extra_arg': '{cmd} 명령에 필요 없는 인자입니다: {arg}',
+  'err.backups_conflict': 'backups: --delete 와 --prune-older-than 은 함께 쓸 수 없습니다. 하나만 지정하세요',
+  'err.apply_needs_prune': 'backups: --apply 는 --prune-older-than N 과 함께일 때만 쓸 수 있습니다',
+  'err.backup_not_dir': '{dir} 의 {id} 는 일반 백업 폴더가 아닙니다(링크 또는 파일). 아무것도 지우지 않았습니다',
+  'err.backup_damaged_delete':
+      '{id} 백업이 손상되어({why}) 아무것도 지우지 않았습니다. {dir} 의 파일을 확인한 뒤 필요 없으면 그 폴더를 직접 지우세요',
+  'err.backup_bad_name':
+      '{dir} 의 {id} 폴더는 이 도구가 만든 백업 이름(YYYYMMDD-HHMMSS-이름)이 아니거나 manifest 의 id 와 달라 아무것도 지우지 않았습니다',
+  'err.backup_delete_failed':
+      '{dir} 의 백업 {id} 를 지우지 못했습니다({why}). 폴더에 쓰기 권한을 준 뒤(chmod -R u+w {dir}) 같은 명령을 다시 실행하세요. 이 전에 지운 개수: {done}',
+  'err.backup_no_manifest': '{dir} 폴더에 manifest.json 이 없어 백업으로 보지 않습니다. 아무것도 지우지 않았습니다',
   'err.missing_id': 'restore 에는 백업 ID 가 필요합니다 (목록 보기: worktree-shelve backups)',
   'err.root_missing': '--root 폴더가 없습니다: {path}',
   'err.root_not_dir': '--root 가 폴더가 아닙니다: {path}',
@@ -263,8 +305,8 @@ const Map<String, String> _ko = {
       '백업 폴더에 쓸 수 없습니다: {path} — 쓰기 권한을 주거나 --backup-dir 폴더 로 다른 곳을 지정하세요',
   'err.backup_dir_no_home': 'HOME 이 설정되지 않아 백업 폴더를 정할 수 없습니다. --backup-dir 폴더 를 지정하세요',
   'err.log_unwritable': '로그 파일에 쓸 수 없습니다: {path} — 폴더 권한을 확인하거나 다른 --log 파일 을 지정하세요',
-  'err.backup_not_found': '{dir} 에 {id} 백업이 없습니다. 목록 보기: worktree-shelve backups',
-  'err.backup_bad_id': '"{id}" 는 올바른 백업 ID 가 아닙니다. 목록 보기: worktree-shelve backups',
+  'err.backup_not_found': '{dir} 에 {id} 백업이 없습니다. 목록 보기: {list}',
+  'err.backup_bad_id': '"{id}" 는 올바른 백업 ID 가 아닙니다. 목록 보기: {list}',
   'err.backup_damaged': '{id} 백업이 손상되었습니다({why}). 파일 위치: {dir}',
   'err.restore_target_exists':
       '되살릴 위치가 이미 있습니다: {path} — 지우거나 --to 경로 로 다른 곳을 지정하세요',
@@ -345,13 +387,22 @@ const Map<String, String> _ko = {
   'apply.summary_no_backup': '회수: {size} (워크트리 {n}개), 기록 정리 {p}개, 실패 {f}개. 백업은 만들지 않았습니다.',
   'backups.none': '{dir} 에 백업이 없습니다.',
   'backups.header': '백업 위치 {dir}:',
+  'backups.partial_header': '남은 미완성 폴더(만들다 중단된 백업입니다. 이 도구는 지우지 않습니다):',
+  'backups.partial_item': '  {path}  크기 {size}',
+  'backups.deleted': '백업 {id} 를 지웠습니다({size}).',
+  'prune.none': '{dir} 에 {days}일보다 오래된 백업이 없습니다.',
+  'prune.header': '{days}일보다 오래된 백업 {n}개:',
+  'prune.preview':
+      '백업 {n}개({size})를 지울 수 있습니다. 미리보기라서 아무것도 바꾸지 않았습니다. 지우려면 --apply 를 붙이세요.',
+  'prune.done': '{dir} 에서 백업 {n}개({size})를 지웠습니다.',
   'restore.done':
       '{path} 를 {branch} 에 되살렸습니다. 변경 내용 {patch}, 미추적 파일 {u}개, 무시 파일 {i}개를 되돌렸습니다.',
   'restore.patch_yes': '적용함',
   'restore.patch_no': '없음',
   'restore.moved':
       '백업 뒤에 {branch} 브랜치가 움직여서 커밋 {sha} 에 분리된 상태로 되살렸습니다. 브랜치로 옮기기: git -C {path} switch {branch}',
-  'restore.kept': '백업은 {dir} 에 그대로 있습니다. 필요 없으면 지우세요.',
+  'restore.kept':
+      '백업은 {dir} 에 그대로 있습니다. 필요 없으면 worktree-shelve backups --delete {id} 로 지우세요.',
   'restore.step.add': '워크트리 만들기',
   'restore.step.patch': 'changes.patch 적용',
   'restore.step.staged': '스테이지 변경 되돌리기',

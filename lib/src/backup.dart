@@ -139,6 +139,10 @@ String newBackupId(String backupRoot, String worktreePath, DateTime now) {
 /// 백업 ID 형식 검사(경로 조작 방지: 슬래시·점점 금지).
 bool isValidBackupId(String id) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$').hasMatch(id);
 
+/// 이 도구가 만든 ID 꼴(`20261112-101500-name`)인지. 정리·삭제는 이 꼴만 대상으로 한다.
+bool isGeneratedBackupId(String id) =>
+    isValidBackupId(id) && RegExp(r'^\d{8}-\d{6}-[A-Za-z0-9_-]+$').hasMatch(id);
+
 /// 백업을 만들고 검증한다. 성공하면 manifest 를 돌려준다.
 Future<Map<String, Object?>> createBackup({
   required Git git,
