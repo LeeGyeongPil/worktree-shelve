@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.1.3
+worktree-shelve 0.2.0
 ```
 
 `dart pub global activate` 는 `worktree-shelve` 명령을 `$HOME/.pub-cache/bin` 에 둡니다. 셸이 못 찾으면 그 폴더를 `PATH` 에 추가하세요. 아래 명령은 `worktree-shelve` 가 `PATH` 에 있다고 가정합니다(clone 상태에서는 `dart run worktree_shelve` 로 바꿔 쓰세요).
@@ -94,7 +94,9 @@ demo-app  worktrees/recent-edit  feature/recent-edit  보존          파일 수
 | `--ignored-cap MB` | 무시된 비산출물 파일 합계가 `MB` 를 넘는 워크트리는 보존합니다(기본 100). |
 | `--backup-dir 폴더` | 백업 위치([설정](#설정) 참고). |
 | `--json`, `--log 파일` | 기계가 읽는 출력, 동작마다 JSON 한 줄을 `파일` 끝에 덧붙임. 줄마다 `action`, `result`, `reason`(코드), `reason_text` 가 있습니다. 백업이 다 담지 못해 보존한 오래된 워크트리는 `"action":"skip"` 줄을 남기므로, 예약 실행에서 왜 지우지 않았는지 알 수 있습니다. |
-| `worktree-shelve backups` | 백업 목록(`--json` 도 됩니다). |
+| `worktree-shelve backups` | 백업 목록(`--json` 도 됩니다). 중단된 백업이 남긴 `<id>.partial` 폴더는 따로 보여 줍니다. |
+| `worktree-shelve backups --delete <id>` | 백업 하나를 지웁니다. ID 를 직접 적은 것이 확인이라 `--apply` 가 없습니다. 백업 폴더 바로 아래의 진짜 폴더이면서 읽을 수 있는 `manifest.json` 이 있는 것만 지우며(링크는 따라가지 않음), 아니면 종료 코드 2 로 아무것도 지우지 않습니다. |
+| `worktree-shelve backups --prune-older-than N [--apply]` | `N`일보다 오래전에 만든 백업을 나열합니다(`N` 은 0 이상 정수). `--apply` 를 붙이기 전에는 미리보기입니다. 읽을 수 있는 `manifest.json` 이 없는 폴더, 백업 ID 형식이 아닌 폴더, `.partial` 폴더는 지우지 않습니다. |
 | `worktree-shelve restore <백업-ID> [--to 경로]` | 제거한 워크트리를 백업에서 다시 만듭니다. |
 | `worktree-shelve sandbox [폴더]` | 연습용 저장소를 만들고 미리보기를 보여 줍니다. |
 
@@ -146,13 +148,36 @@ git -C shelve-sandbox/worktrees/old-dirty status --short
 
 ```text
 shelve-sandbox/worktrees/old-dirty 를 feature/old-dirty 에 되살렸습니다. 변경 내용 적용함, 미추적 파일 1개, 무시 파일 1개를 되돌렸습니다.
-백업은 /path/to/bk/20261112-073500-old-dirty 에 그대로 있습니다. 필요 없으면 지우세요.
+백업은 /path/to/bk/20261112-073500-old-dirty 에 그대로 있습니다. 필요 없으면 worktree-shelve backups --delete 20261112-073500-old-dirty 로 지우세요.
 M  README.md
  M src/app.txt
 ?? notes/
 ```
 
 스테이지한 변경(`M `)과 하지 않은 변경(` M`)이 그대로 돌아옵니다. `node_modules` 같은 산출물은 백업하지 않으므로 되살린 뒤 다시 설치하세요.
+
+### 오래된 백업 정리
+
+백업은 자동으로 지워지지 않습니다. ID 로 하나를 지우거나, 오래된 것을 미리 본 뒤 정리하세요.
+
+```bash
+worktree-shelve backups --delete 20261112-073500-old-clean --backup-dir bk
+worktree-shelve backups --prune-older-than 30 --backup-dir bk          # 미리보기만
+worktree-shelve backups --prune-older-than 30 --apply --backup-dir bk  # 실제로 삭제
+```
+
+```text
+30일보다 오래된 백업 1개:
+백업 ID                   만든 때           크기
+20260101-000000-old-demo  2026-01-01 09:00  612 B
+
+백업 1개(612 B)를 지울 수 있습니다. 미리보기라서 아무것도 바꾸지 않았습니다. 지우려면 --apply 를 붙이세요.
+
+남은 미완성 폴더(만들다 중단된 백업입니다. 이 도구는 지우지 않습니다):
+  /path/to/bk/20260105-000000-half.partial  크기 2 B
+```
+
+(경로는 `/path/to/bk` 로 줄여 적었습니다.) 백업 폴더 바로 아래에 있고 읽을 수 있는 `manifest.json` 이 있는 폴더만 지우며, 심볼릭 링크는 따라가지 않습니다. 폴더 이름이 백업 ID 형식(`YYYYMMDD-HHMMSS-name`)이고 manifest 의 `id` 가 폴더 이름과 같은 백업만 지웁니다. 나이는 manifest 의 `created_at` 기준입니다. 두 옵션 모두 `--json` 을 지원합니다. 깨진 백업(읽을 수 있는 `manifest.json` 이 없음)은 어느 옵션도 지우지 않습니다. `--delete` 는 한 줄 메시지와 함께 종료 코드 2 로 끝나고 `--prune-older-than` 은 건너뜁니다. 필요 없다고 확신하면 그 폴더를 직접 지우세요. 삭제 도중 실패하면 종료 코드는 2 입니다.
 
 ### 자동화
 
@@ -162,6 +187,8 @@ worktree-shelve scan --root ~/code --days 14 --apply --json --log ~/worktree-she
 
 ![--json 출력 일부: 워크트리마다 branch, verdict, reason](docs/images/json.ko.png)
 *`verdict` 와 `reason` 은 어느 언어에서나 고정된 영어 코드이고, `reason_text` 는 고른 언어를 따릅니다.*
+
+오래된 백업은 같은 스케줄이나 손으로 `worktree-shelve backups --prune-older-than 90 --apply` 로 정리할 수 있습니다. 먼저 `--apply` 없이 무엇이 지워질지 확인하세요.
 
 cron 이나 스케줄러에서 실행하세요. `--root` 아래 저장소가 많으면 git 호출이 늘어 시간이 걸릴 수 있으니, `--root` 를 좁은 폴더로 지정하면 빨라집니다. 종료 코드: `0` 정상, `1` 일부 워크트리 실패, `2` 사용법·환경 오류. 실패한 워크트리는 손대지 않고 그대로 둡니다. 단, 지우는 도중 git 자체가 멈춘 경우에는 오류 메시지에 백업 ID 와 되살리기 명령을 알려 줍니다([자주 겪는 문제](#자주-겪는-문제) 참고). 오류는 한 줄입니다.
 
@@ -371,7 +398,8 @@ app     wt        feat    백업 후 제거  42일 동안 쓰지 않음, 바뀐 
 ## 로드맵
 
 - **M2(예정):** 남겨 두는 워크트리 안의 찌꺼기 정리 — 오래되면 지워도 안전한 테스트 리포트·캐시, 저장소 전체가 유휴일 때만 의존성·빌드 폴더, `.git` 안 오래된 `tmp_pack_*` 파일, 재설치 명령 안내.
-- **M3(예정):** macOS arm64·Linux x64 바이너리, `backups --prune-older-than N`, `--include-outside-root`, pub.dev 게시 준비(메타데이터·`dart pub publish --dry-run`).
+- **0.2.0 에서 완료:** `backups --delete <id>`, `backups --prune-older-than N`(기본 미리보기, `--apply` 로 삭제).
+- **M3(예정):** macOS arm64·Linux x64 바이너리, `--include-outside-root`, pub.dev 게시 준비(메타데이터·`dart pub publish --dry-run`).
 
 ## 더 알아보기
 

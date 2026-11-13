@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.0 (2026-11-14)
+
+- Added: `worktree-shelve backups --delete <id>` deletes one backup. Naming the id is the
+  confirmation. Only a real folder directly inside the backup folder with a readable
+  `manifest.json` is deleted; links are not followed; anything else exits with code 2 and deletes
+  nothing.
+- Added: `worktree-shelve backups --prune-older-than N [--apply] [--json]` lists backups whose
+  manifest `created_at` is more than `N` days old. It is a preview unless `--apply` is given.
+  Folders without a readable manifest, with a non-backup name, or ending in `.partial` are never
+  deleted. Only folders named like backups this tool makes (`YYYYMMDD-HHMMSS-name`) whose
+  manifest `id` matches the folder name are deleted by `--delete` and `--prune-older-than`.
+- Added: deleting removes `manifest.json` last and checks write permission first, so a failed
+  delete leaves the backup listed and deletable; the error (exit 2) says how to fix permissions.
+- Changed: "list backups with" hints include `--backup-dir` when you passed it; a damaged
+  backup refused by `--delete` says what to do next.
+- Added: leftover `<id>.partial` folders from interrupted backups are shown separately in
+  `backups` and `--prune-older-than` output (display only; nothing deletes them).
+- Changed: the `restore` closing line now mentions `worktree-shelve backups --delete <id>`.
+- All new messages and help text exist in English and Korean.
+- Full changes: https://github.com/LeeGyeongPil/worktree-shelve/compare/v0.1.3...v0.2.0
+
+### Known issues
+
+- The closing hint of `restore` does not include `--backup-dir` when you passed it.
+- `backups --prune-older-than --apply` can print `Deleted before this: 0` in a message where the count is not meaningful.
+- The backup list display has small wording and layout rough edges.
+- `--prune-older-than` without a value gives a generic error instead of a specific one.
+
 ## 0.1.3 (2026-11-13)
 
 - Fixed: when the folder that blocks removal is the worktree's parent folder, the error (and the

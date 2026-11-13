@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.1.3
+worktree-shelve 0.2.0
 ```
 
 `dart pub global activate` puts the `worktree-shelve` command in `$HOME/.pub-cache/bin`; add that folder to your `PATH` if the shell does not find it. The commands below assume `worktree-shelve` is on your `PATH` (from a clone, use `dart run worktree_shelve` instead).
@@ -94,7 +94,9 @@ How to read the table:
 | `--ignored-cap MB` | Keep a worktree whose ignored non-build files exceed `MB` (default 100). |
 | `--backup-dir DIR` | Where backups go (see [Configuration](#configuration)). |
 | `--json`, `--log FILE` | Machine-readable output; append one JSON line per action to `FILE`. Each line has `action`, `result`, `reason` (code) and `reason_text`. A stale worktree kept because a backup cannot cover it gets an `"action":"skip"` line, so a scheduled run shows why it was not removed. |
-| `worktree-shelve backups` | List backups (`--json` also works). |
+| `worktree-shelve backups` | List backups (`--json` also works). Leftover `<id>.partial` folders from interrupted backups are listed separately. |
+| `worktree-shelve backups --delete <id>` | Delete one backup. Naming the id is the confirmation, so there is no `--apply`. Only a real folder directly inside the backup folder with a readable `manifest.json` is deleted (links are never followed); otherwise exit code 2 and nothing is deleted. |
+| `worktree-shelve backups --prune-older-than N [--apply]` | List backups created more than `N` days ago (`N` is a whole number, 0 or more). Preview only unless `--apply` is added. Folders without a readable `manifest.json`, folders whose name is not a backup id, and `.partial` folders are never deleted. |
 | `worktree-shelve restore <backup-id> [--to PATH]` | Recreate a removed worktree from its backup. |
 | `worktree-shelve sandbox [DIR]` | Create the practice repository and preview it. |
 
@@ -146,13 +148,36 @@ git -C shelve-sandbox/worktrees/old-dirty status --short
 
 ```text
 Restored shelve-sandbox/worktrees/old-dirty on feature/old-dirty: changes applied, 1 untracked and 1 ignored file(s) put back.
-The backup stays in /path/to/bk/20261112-073444-old-dirty; delete it when you no longer need it.
+The backup stays in /path/to/bk/20261112-073444-old-dirty; delete it when you no longer need it with: worktree-shelve backups --delete 20261112-073444-old-dirty
 M  README.md
  M src/app.txt
 ?? notes/
 ```
 
 Staged (`M `) and unstaged (` M`) changes come back as they were. Build artifacts such as `node_modules` are not backed up, so reinstall them after a restore.
+
+### Clean up old backups
+
+Backups are never removed automatically. Delete one by id, or preview and then prune the old ones:
+
+```bash
+worktree-shelve backups --delete 20261112-073444-old-clean --backup-dir bk
+worktree-shelve backups --prune-older-than 30 --backup-dir bk          # preview only
+worktree-shelve backups --prune-older-than 30 --apply --backup-dir bk  # really delete
+```
+
+```text
+1 backup(s) older than 30 day(s):
+BACKUP ID                 CREATED           SIZE
+20260101-000000-old-demo  2026-01-01 09:00  612 B
+
+Would delete 1 backup(s), 612 B. Preview only: nothing was changed. Add --apply to delete.
+
+Leftover unfinished folders (an interrupted backup; this tool does not delete them):
+  /path/to/bk/20260105-000000-half.partial  2 B
+```
+
+(Paths are shortened to `/path/to/bk`.) Only folders directly inside the backup folder that have a readable `manifest.json` are deleted; symbolic links are not followed. Only backups whose folder name is a backup id (`YYYYMMDD-HHMMSS-name`) and whose manifest `id` equals the folder name are deleted. The age comes from `created_at` in the manifest. `--json` works with both options. A damaged backup (no readable `manifest.json`) is not deleted by either option: `--delete` exits with code 2 and a one-line message, and `--prune-older-than` skips it; remove that folder by hand once you are sure you do not need it. If a delete fails partway, the exit code is 2.
 
 ### Automation
 
@@ -162,6 +187,8 @@ worktree-shelve scan --root ~/code --days 14 --apply --json --log ~/worktree-she
 
 ![Excerpt of --json output: branch, verdict and reason for each worktree](docs/images/json.png)
 *`verdict` and `reason` are fixed English codes in every language; `reason_text` follows the chosen language.*
+
+Backups are kept until you delete them. Old ones can be cleaned up from the same schedule (or by hand) with `worktree-shelve backups --prune-older-than 90 --apply`; run it without `--apply` first to see what would go.
 
 Run it from cron or a scheduler. With many repositories under `--root` the scan calls git many times and can take a while; point `--root` at a narrower folder to speed it up. Exit codes: `0` ok, `1` some worktrees failed, `2` usage or environment error. A failed worktree is left untouched, unless git itself stopped midway while removing it; then the error names the backup id and the restore command (see [Troubleshooting](#troubleshooting)). Errors are one line:
 
@@ -371,7 +398,8 @@ After `worktree-shelve restore 20261112-082712-wt --backup-dir bk --to root/wt2`
 ## Roadmap
 
 - **M2 (planned):** clean leftovers inside worktrees you keep: test reports and caches that are safe to delete when old, and dependency or build folders only when the whole repository is idle; stale `tmp_pack_*` files in `.git`; a hint for the reinstall command.
-- **M3 (planned):** prebuilt binaries for macOS arm64 and Linux x64, `backups --prune-older-than N`, `--include-outside-root`, pub.dev publish preparation (metadata and `dart pub publish --dry-run`).
+- **Done in 0.2.0:** `backups --delete <id>` and `backups --prune-older-than N` (preview by default, `--apply` to delete).
+- **M3 (planned):** prebuilt binaries for macOS arm64 and Linux x64, `--include-outside-root`, pub.dev publish preparation (metadata and `dart pub publish --dry-run`).
 
 ## Learn more
 
