@@ -60,7 +60,11 @@ void main() {
       expect(line, contains('$wt/ro'), reason: 'names the folder that blocks removal');
       expect(line, contains('chmod -R u+w'));
       expect(line, contains('Nothing was removed'));
+      expect(line, contains('no backup was made'));
+      expect(line, isNot(contains('backup folder')));
     }
+    expect(run.out, contains('No backup was made.'));
+    expect(run.out, isNot(contains('Backups:')));
     expect(run.out, contains('FAILED   wt/clean'));
     expect(run.out, contains('FAILED   wt/dirty'));
 
@@ -94,8 +98,26 @@ void main() {
     expect(run.errLines, hasLength(1));
     expect(run.err, contains('${fx.base}/root/frozen'));
     expect(run.err, contains('chmod -R u+w'));
+    expect(run.err, contains('no backup was made'));
+    expect(run.err, isNot(contains('backup folder')));
+    expect(run.out, contains('No backup was made.'));
+    expect(run.out, isNot(contains('Backups:')));
     expect(fx.listing(wt), before);
     expect(await fx.porcelain(repo), contains('worktree $wt\x00'));
+    expect(backupEntries(), isEmpty);
+  });
+
+  test('same failure with --lang ko: no backup folder is shown', () async {
+    final (_, wt) = await staleWorktree('root/app', 'root/wt/ko', 'ko', dirty: true);
+    readOnly('$wt/ro');
+    final run = await fx.cli(
+        ['scan', '--root', '${fx.base}/root', '--apply', '--backup-dir', fx.backups, '--lang', 'ko']);
+    if (runningAsRoot) return;
+    expect(run.code, 1, reason: run.err);
+    expect(run.err, contains('백업은 만들지 않았습니다'));
+    expect(run.err, isNot(contains('백업 폴더:')));
+    expect(run.out, contains('백업은 만들지 않았습니다.'));
+    expect(run.out, isNot(contains('백업 위치:')));
     expect(backupEntries(), isEmpty);
   });
 
@@ -144,6 +166,8 @@ void main() {
     expect(line, isNot(contains('left in place')));
     // 표 아래에도 FAILED 와 복원 명령이 찍힌다.
     expect(run.out, contains('FAILED   wt/work'));
+    expect(run.out, contains('Backups: '));
+    expect(run.out, contains(fx.backups));
     expect(run.out, contains('restore: worktree-shelve restore $id --backup-dir ${fx.backups} --to'));
 
     // 로그에서도 찾을 수 있다: 실패, 백업 ID, 복원 명령.

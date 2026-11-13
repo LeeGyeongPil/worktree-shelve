@@ -48,7 +48,7 @@ void main() {
     expect(run.errLines, hasLength(1));
     expect(run.err, startsWith('error: '));
     expect(run.err, contains('backup check failed'));
-    expect(run.err, contains(fx.backups));
+    expect(run.err, contains('no backup was made'));
     expect(run.err, contains('--backup-dir'));
     expect(run.err, isNot(contains('.partial')), reason: 'show the user path, not the temp path');
     // 만들다 만 묶음은 남지 않는다.
@@ -66,7 +66,7 @@ void main() {
     if (runningAsRoot) return;
     expect(run.code, 1);
     expect(run.errLines, hasLength(1));
-    expect(run.err, contains(fx.backups));
+    expect(run.err, contains('no backup was made'));
     expect(run.out, contains('FAILED'));
     expect(Directory(fx.backups).listSync(), isEmpty);
   });
