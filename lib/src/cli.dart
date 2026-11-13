@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.1.2';
+const toolVersion = '0.1.3';
 
 class CliContext {
   CliContext({
@@ -305,7 +305,7 @@ Future<int> _scan(List<String> args, CliContext ctx, Messages m,
     final shown = displayPath(a.path, root: root, home: home);
     // 원인에 맞는 다음 행동을 고른다(제거 실패에 "권한·--backup-dir" 안내를 붙이지 않게).
     final fix = switch (failure.key) {
-      'fail.changed' || 'fail.blind_spot' || 'fail.not_removable' => 'fix.retry',
+      'fail.changed' || 'fail.blind_spot' || 'fail.not_removable' || 'fail.parent_not_removable' => 'fix.retry',
       'fail.remove' => 'fix.remove',
       _ => 'fix.permissions',
     };

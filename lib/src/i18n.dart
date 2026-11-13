@@ -154,6 +154,8 @@ const Map<String, String> _en = {
   'item.remove_failed':
       '{path}: {why}; git still lists the worktree. Backup {id} is kept in case files were deleted; restore with: {cmd}. {fix}',
   'hint.new_path': 'NEW_PATH',
+  'fail.parent_not_removable':
+      'cannot delete the worktree folder: its parent folder {path} is read-only or owned by another user (fix it with chmod u+w {path}, or chown {path} if another user created it; -R is not needed)',
   'fail.not_removable':
       'cannot delete everything: {path} is read-only or owned by another user (fix it with chmod -R u+w {path}, or chown if another user created it)',
   'fail.remove_partial':
@@ -280,6 +282,8 @@ const Map<String, String> _ko = {
   'item.remove_failed':
       '{path}: {why} — git 기록에는 워크트리가 남아 있습니다. 파일이 지워졌을 수 있어 백업 {id} 를 남겨 두었습니다. 되살리기: {cmd}. {fix}',
   'hint.new_path': '새-경로',
+  'fail.parent_not_removable':
+      '워크트리 폴더를 지울 수 없습니다: 부모 폴더 {path} 가 읽기 전용이거나 다른 사용자 소유입니다(chmod u+w {path} 로 고치거나, 다른 사용자가 만든 폴더면 chown {path} — -R 은 필요 없음)',
   'fail.not_removable':
       '끝까지 지울 수 없습니다: {path} 가 읽기 전용이거나 다른 사용자 소유입니다(chmod -R u+w {path} 로 고치거나, 다른 사용자가 만든 폴더면 chown)',
   'fail.remove_partial': 'git 이 도중에 멈췄습니다({why}). 워크트리 기록을 지웠고 폴더 일부가 지워졌을 수 있습니다',

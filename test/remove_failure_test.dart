@@ -97,11 +97,30 @@ void main() {
     expect(run.code, 1, reason: run.err);
     expect(run.errLines, hasLength(1));
     expect(run.err, contains('${fx.base}/root/frozen'));
-    expect(run.err, contains('chmod -R u+w'));
+    expect(run.err, contains('chmod u+w ${fx.base}/root/frozen'));
+    expect(run.err, isNot(contains('chmod -R')));
     expect(run.err, contains('no backup was made'));
     expect(run.err, isNot(contains('backup folder')));
     expect(run.out, contains('No backup was made.'));
     expect(run.out, isNot(contains('Backups:')));
+    expect(fx.listing(wt), before);
+    expect(await fx.porcelain(repo), contains('worktree $wt\x00'));
+    expect(backupEntries(), isEmpty);
+  });
+
+  test('read-only parent folder with --lang ko: hint has no -R', () async {
+    final (repo, wt) = await staleWorktree('root/app', 'root/frozen/wt', 'frozen', dirty: true);
+    readOnly('${fx.base}/root/frozen');
+    final before = fx.listing(wt);
+
+    final run = await fx.cli([
+      'scan', '--root', '${fx.base}/root', '--apply', '--backup-dir', fx.backups, '--lang', 'ko', //
+    ]);
+    if (runningAsRoot) return;
+    expect(run.code, 1, reason: run.err);
+    expect(run.err, contains('부모 폴더 ${fx.base}/root/frozen'));
+    expect(run.err, contains('chmod u+w ${fx.base}/root/frozen'));
+    expect(run.err, isNot(contains('chmod -R')));
     expect(fx.listing(wt), before);
     expect(await fx.porcelain(repo), contains('worktree $wt\x00'));
     expect(backupEntries(), isEmpty);

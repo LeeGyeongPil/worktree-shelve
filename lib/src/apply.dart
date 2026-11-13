@@ -262,7 +262,10 @@ class RemovalCheck {
 /// 지우지 못하게 막는 폴더가 있으면 'fail.not_removable' 로 멈춘다(아무것도 지우지 않은 상태).
 Future<void> _ensureRemovable(ApplyContext c, Assessment a) async {
   final blocker = await c.removal.firstBlocker(a.path);
-  if (blocker != null) throw ShelveError('fail.not_removable', {'path': blocker}, 1);
+  if (blocker == null) return;
+  // 부모 폴더는 그 폴더 자체에만 쓰기 권한이 있으면 되므로 -R 없는 안내를 따로 쓴다.
+  final isParent = blocker == File(a.path).parent.path;
+  throw ShelveError(isParent ? 'fail.parent_not_removable' : 'fail.not_removable', {'path': blocker}, 1);
 }
 
 /// 커밋이 브랜치·태그·원격 브랜치 중 하나에서 닿으면 true.
