@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.1.1';
+const toolVersion = '0.1.2';
 
 class CliContext {
   CliContext({
@@ -330,7 +330,7 @@ Future<int> _scan(List<String> args, CliContext ctx, Messages m,
       });
     } else {
       // git 을 부르기 전에 멈췄다 — 아무것도 지우지 않았다.
-      line = ShelveError('item.failed', {'path': shown, 'why': failure, 'dir': backupRoot, 'fix': m.t(fix)});
+      line = ShelveError('item.failed', {'path': shown, 'why': failure, 'fix': m.t(fix)});
     }
     ctx.err.writeln(errorLine(line, m));
   }
@@ -431,7 +431,7 @@ void _printScanTable(List<Assessment> items, CliContext ctx, Messages m,
     if (a.restoreCommand != null) ctx.out.writeln(m.t('apply.restore', {'cmd': a.restoreCommand}));
   }
   final ok = items.where((a) => a.result == 'ok');
-  ctx.out.writeln(m.t('apply.summary', {
+  ctx.out.writeln(m.t(items.any((a) => a.backupId != null) ? 'apply.summary' : 'apply.summary_no_backup', {
     'size': formatSize(_reclaim(ok)),
     'n': ok.where((a) => a.verdict != Verdict.prune).length,
     'p': ok.where((a) => a.verdict == Verdict.prune).length,

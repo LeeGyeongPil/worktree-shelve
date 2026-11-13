@@ -146,8 +146,8 @@ const Map<String, String> _en = {
   'err.sandbox_not_empty': '{path} exists and is not a worktree-shelve sandbox; choose an empty folder',
   'err.fs': 'cannot access {path}: {why}',
   'err.unexpected': 'unexpected problem: {why}',
-  // 항목 실패(종료 코드 1). item.failed 는 git 을 부르기 전에 멈춘 경우(아무것도 지우지 않음).
-  'item.failed': '{path}: {why}; left in place (backup folder: {dir}). {fix}',
+  // 항목 실패(종료 코드 1). item.failed 는 git 을 부르기 전에 멈춘 경우(아무것도 지우지 않았고 백업도 만들지 않음).
+  'item.failed': '{path}: {why}; left in place, no backup was made. {fix}',
   // git worktree remove 가 실패한 경우 — 일부가 지워졌을 수 있어 백업 ID 와 복원 명령을 알린다.
   'item.partial':
       '{path}: {why}. Everything is in backup {id}; restore it with: {cmd} (or delete {abs} first and run it without --to)',
@@ -217,6 +217,7 @@ const Map<String, String> _en = {
   'apply.restore': '         restore: {cmd}',
   'apply.pinned': '         pinned detached commit {sha} as {ref}',
   'apply.summary': 'Reclaimed {size} from {n} worktree(s), pruned {p}, failed {f}. Backups: {dir}',
+  'apply.summary_no_backup': 'Reclaimed {size} from {n} worktree(s), pruned {p}, failed {f}. No backup was made.',
   // backups
   'backups.none': 'No backups in {dir}.',
   'backups.header': 'Backups in {dir}:',
@@ -273,7 +274,7 @@ const Map<String, String> _ko = {
   'err.sandbox_not_empty': '{path} 가 이미 있고 worktree-shelve 연습 폴더가 아닙니다. 빈 폴더를 지정하세요',
   'err.fs': '{path} 에 접근할 수 없습니다: {why}',
   'err.unexpected': '예상하지 못한 문제: {why}',
-  'item.failed': '{path}: {why} — 지우지 않고 그대로 두었습니다(백업 폴더: {dir}). {fix}',
+  'item.failed': '{path}: {why} — 지우지 않고 그대로 두었고 백업은 만들지 않았습니다. {fix}',
   'item.partial':
       '{path}: {why}. 모든 내용은 백업 {id} 에 있습니다. 되살리기: {cmd} (또는 {abs} 를 먼저 지운 뒤 --to 없이 실행)',
   'item.remove_failed':
@@ -337,6 +338,7 @@ const Map<String, String> _ko = {
   'apply.restore': '              되살리기: {cmd}',
   'apply.pinned': '              분리된 커밋 {sha} 를 {ref} 로 고정함',
   'apply.summary': '회수: {size} (워크트리 {n}개), 기록 정리 {p}개, 실패 {f}개. 백업 위치: {dir}',
+  'apply.summary_no_backup': '회수: {size} (워크트리 {n}개), 기록 정리 {p}개, 실패 {f}개. 백업은 만들지 않았습니다.',
   'backups.none': '{dir} 에 백업이 없습니다.',
   'backups.header': '백업 위치 {dir}:',
   'restore.done':
