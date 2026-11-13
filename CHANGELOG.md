@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 (2026-11-13)
+
+- Fixed: when a worktree stopped before any backup was made (for example the pre-removal
+  permission check), the error line no longer ends with `(backup folder: ...)`; it now says
+  `no backup was made`. If no backup was kept in the whole run, the `--apply` summary line says
+  `No backup was made.` instead of showing a backup folder (English and Korean).
+- Full changes: https://github.com/LeeGyeongPil/worktree-shelve/compare/v0.1.1...v0.1.2
+
 ## 0.1.1 (2026-11-12)
 
 - Fixed: tests no longer depend on the order in which git deletes files or lists worktrees

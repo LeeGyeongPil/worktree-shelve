@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.1.1
+worktree-shelve 0.1.2
 ```
 
 `dart pub global activate` puts the `worktree-shelve` command in `$HOME/.pub-cache/bin`; add that folder to your `PATH` if the shell does not find it. The commands below assume `worktree-shelve` is on your `PATH` (from a clone, use `dart run worktree_shelve` instead).
@@ -187,10 +187,10 @@ REPO  WORKTREE  BRANCH  VERDICT  WHY                                          SI
 app   app       main    keep     main worktree                                   -
 app   wt        feat    keep     has submodule sub; backups cannot cover it  160 B
 
-Reclaimed 0 B from 0 worktree(s), pruned 0, failed 0. Backups: /path/to/bk
+Reclaimed 0 B from 0 worktree(s), pruned 0, failed 0. No backup was made.
 ```
 
-The exit code is 0, no backup folder is created, and the files inside `sub` are untouched. Other examples of the WHY text: `has another git repo at tools/scratch; backups cannot cover it` and `unfinished git merge; backups cannot cover it`.
+The exit code is 0, no backup is made (an empty `--backup-dir` folder may still be created), and the files inside `sub` are untouched. Other examples of the WHY text: `has another git repo at tools/scratch; backups cannot cover it` and `unfinished git merge; backups cannot cover it`.
 
 A backup folder contains up to five files; the two `.tar` files appear only when there are untracked or ignored files to save. In the sandbox, the `old-clean` backup has three files and the `old-dirty` backup has all five.
 
@@ -217,7 +217,7 @@ The screen language is English or Korean.
 | `--lang en\|ko` | Language for this run. |
 | `WORKTREE_SHELVE_LANG` | Default language, for example `export WORKTREE_SHELVE_LANG=ko`. |
 
-The first one set wins, in this order: `--lang`, `WORKTREE_SHELVE_LANG`, `LC_ALL`, `LC_MESSAGES`, `LANG`. Anything that does not start with `ko` gives English. `--lang ko` switches help, table headers, reasons and errors to Korean; see [README.ko.md](README.ko.md) for screenshots. Error details quoted from git itself (inside parentheses) follow git's own language setting.
+The first one set wins, in this order: `--lang`, `WORKTREE_SHELVE_LANG`, `LC_ALL`, `LC_MESSAGES`, `LANG`. Anything that does not start with `ko` gives English. Write `--lang` after the subcommand (`worktree-shelve scan --lang ko`), not before it. `--lang ko` switches help, table headers, reasons and errors to Korean; see [README.ko.md](README.ko.md) for screenshots. Error details quoted from git itself (inside parentheses) follow git's own language setting.
 
 ## How it works
 
@@ -332,7 +332,7 @@ What worktree-shelve does today: a two-signal check (commit age and newest file 
 | `keep` with `ignored files ... over the ... cap` (`ignored_too_large` in `--json`) | Ignored non-build files exceed `--ignored-cap` | Raise `--ignored-cap MB` or clean that folder yourself. |
 | `error: cannot write to backup folder ...` (exit 2) | The backup folder is not writable | Pass `--backup-dir` with a writable folder. |
 | `keep` with `has submodule ...`, `has another git repo at ...` or `unfinished git merge` (`has_submodules`, `nested_repo`, `git_in_progress` in `--json`) | The backup cannot cover work inside a submodule or nested repository, or a half-done git operation | Commit and push the work inside the submodule or nested repository, or finish or abort the merge/rebase (`git merge --abort`, `git rebase --continue`, ...). Then remove the worktree yourself with `git worktree remove` if you still want it gone; the tool keeps worktrees with submodules every time. |
-| Exit code 1, `error: <wt>: cannot delete everything: <folder> is read-only or owned by another user (fix it with chmod -R u+w <folder>, or chown if another user created it); left in place (...). Nothing was removed; run the scan again.` | A folder in the worktree (or its parent) is read-only or belongs to another user, for example one created by a container running as root. git would stop halfway on it, so the tool did not start | Run `chmod -R u+w <folder>`, or `sudo chown -R "$USER" <folder>` if another user created it, then scan again. No backup was made and nothing was deleted. |
+| Exit code 1, `error: <wt>: cannot delete everything: <folder> is read-only or owned by another user (fix it with chmod -R u+w <folder>, or chown if another user created it); left in place, no backup was made. Nothing was removed; run the scan again.` | A folder in the worktree (or its parent) is read-only or belongs to another user, for example one created by a container running as root. git would stop halfway on it, so the tool did not start | Run `chmod -R u+w <folder>`, or `sudo chown -R "$USER" <folder>` if another user created it, then scan again. No backup was made and nothing was deleted. |
 | Exit code 1, `error: <wt>: git stopped midway (...); it dropped the worktree record and may have deleted part of the folder. Everything is in backup <id>; restore it with: worktree-shelve restore <id> --to NEW_PATH (or delete <folder> first and run it without --to)` | git could not delete a file it did not expect, such as a locked file (`chflags uchg`, `chattr +i`). It dropped its record and may have deleted part of the folder, so the next scan does not show this worktree | Run `worktree-shelve restore <id> --to <new path>`, or delete the leftover folder and run `worktree-shelve restore <id>`. Restoring to the original place while the leftover folder is there fails with `restore target already exists`. If you lost the id, run `worktree-shelve backups` or look for `backup_id` in the `--log` file. |
 | Exit code 1, message `... git still lists the worktree. Backup <id> is kept in case files were deleted; restore with: ... --to NEW_PATH. Fix what git reported, then run the scan again.` | git refused to remove the worktree, for example because a new file appeared in a clean worktree; the reason is in parentheses | Fix what git reported and scan again. If files are missing, run `restore <id> --to <new path>`. Delete the backup when you no longer need it. |
 | Exit code 1, message `it changed after the scan (...) ... Nothing was removed; run the scan again.` | A submodule, nested repository or unfinished operation appeared after the scan | Run the scan again; it will now be `keep`. |
@@ -363,7 +363,6 @@ After `worktree-shelve restore 20261112-082712-wt --backup-dir bk --to root/wt2`
 - "Newest file edit" relies on file modification times. Copying files with their old times, or restoring from an archive, can make a worktree look older than it is. Use a larger `--days` if your tools do that.
 - Dependency and build folders are not cleaned in worktrees that are kept, and are not restored by `restore`.
 - The folder check before removal only looks at the owner and the owner's write permission. A folder you can write only through group permission is treated as not deletable, so that worktree fails with exit 1 even though it could be removed. Locked files (`chflags uchg`, `chattr +i`) are not detected in advance; they lead to the "git stopped midway" case in [Troubleshooting](#troubleshooting).
-- When the pre-removal check stops a worktree (read-only folder or another owner), the error still ends with `(backup folder: <dir>)`. No backup was made in that case and the folder is empty; the words "Nothing was removed" in the same line are the accurate part.
 - When the blocking folder is the worktree's parent folder, the hint still says `chmod -R u+w <parent>`. Only the parent folder itself needs write permission, so `chmod u+w <parent>` (without `-R`) is enough and safer for a large folder such as `~/code`.
 - If standard output is closed early (for example `worktree-shelve sandbox | head -1`), the tool prints a raw `FileSystemException ... Broken pipe` message in English and still exits with code 0. This is not a timing issue: it happens on every run piped into `head`. Redirect to a file instead of piping into `head` if you need a reliable exit code.
 - A file name that contains a newline makes the backup check fail for that worktree. The worktree is kept and nothing is deleted, but the `backup check failed (...)` message does not say that the newline is the reason. Rename such files if you want the worktree cleaned up.
