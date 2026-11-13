@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 (2026-11-13)
+
+- Fixed: when the folder that blocks removal is the worktree's parent folder, the error (and the
+  log `error` field) now says `chmod u+w <parent>` (or `chown <parent>`) without `-R`, since only
+  the parent folder itself needs write permission. Folders inside the worktree still get
+  `chmod -R u+w`. Detection, exit code 1, and the "no backup" behavior are unchanged (English and
+  Korean).
+- Full changes: https://github.com/LeeGyeongPil/worktree-shelve/compare/v0.1.2...v0.1.3
+
 ## 0.1.2 (2026-11-13)
 
 - Fixed: when a worktree stopped before any backup was made (for example the pre-removal
