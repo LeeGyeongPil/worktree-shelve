@@ -28,6 +28,14 @@ jobs:
           tar --version | head -n 1
           uname -a
           id -u
-      - run: dart test
+      # 화면 출력은 기본(Actions 에서는 github) 리포터 그대로, 이벤트는 JSON 파일로도 남긴다.
+      - name: dart test
+        id: test
+        run: dart test --file-reporter "json:$RUNNER_TEMP/test-report.json"
+      # github 리포터의 주석은 "N passed, 1 failed" 요약뿐이라, 실패한 테스트마다
+      # 이름·위치·Expected/Actual 을 공개 주석(::error)으로 따로 올린다.
+      - name: Annotate failed tests
+        if: failure() && steps.test.outcome == 'failure'
+        run: dart run tool/ci_annotate.dart "$RUNNER_TEMP/test-report.json"
       - name: First run (sandbox preview)
         run: dart run worktree_shelve sandbox "$RUNNER_TEMP/shelve-sandbox"

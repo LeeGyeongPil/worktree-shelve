@@ -136,7 +136,8 @@ class Fixture {
   static Map<String, Object?> item(Map<String, Object?> json, String pathSuffix) {
     final list = (json['worktrees'] as List<Object?>).cast<Map<String, Object?>>();
     return list.firstWhere((w) => (w['path'] as String).endsWith(pathSuffix),
-        orElse: () => throw StateError('no worktree ending with $pathSuffix'));
+        orElse: () => throw StateError(
+            'no worktree ending with $pathSuffix in ${list.map((w) => w['path']).toList()}'));
   }
 }
 

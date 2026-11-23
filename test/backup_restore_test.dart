@@ -95,24 +95,29 @@ void main() {
     expect((await fx.gitOut(target, ['status', '--porcelain'])).trim(), isEmpty);
   });
 
-  test('restore closing hint keeps --backup-dir and works as printed (en and ko)', () async {
-    final repo = await fx.makeRepo('root/repo');
-    for (final lang in ['en', 'ko']) {
+  // 언어마다 따로 저장소를 만든다(앞 언어에서 되살린 워크트리가 다음 스캔에 섞이지 않게).
+  for (final lang in ['en', 'ko']) {
+    test('restore closing hint keeps --backup-dir and works as printed ($lang)', () async {
+      final repo = await fx.makeRepo('root/repo');
       final wt = await fx.addWorktree(repo, 'root/wt/$lang', branch: 'b-$lang', ageDays: null);
       fx.b.write('$wt/src/a.txt', 'changed $lang\n');
       await fx.age(wt, 30);
       final run = await fx.cli(
           ['scan', '--root', '${fx.base}/root', '--apply', '--json', '--backup-dir', fx.backups]);
       expect(run.code, 0, reason: run.err);
-      final id = Fixture.item(run.json, '/wt/$lang')['backup_id'] as String;
+      final item = Fixture.item(run.json, '/wt/$lang');
+      // 실패하면 판정·이유가 그대로 보이게(백업이 없으면 아래 형 변환 오류만으로는 원인을 알 수 없다).
+      expect(item['backup_id'], isA<String>(), reason: '$item');
+      final id = item['backup_id'] as String;
       final restore = await fx.cli(['restore', id, '--backup-dir', fx.backups, '--lang', lang]);
       expect(restore.code, 0, reason: restore.err);
       final last = restore.out.trim().split('\n').last;
-      expect(last, contains('worktree-shelve backups --delete $id --backup-dir ${fx.backups}'));
+      expect(last, contains('worktree-shelve backups --delete $id --backup-dir ${fx.backups}'),
+          reason: 'full output:\n${restore.out}');
       final del = await fx.cli(['backups', '--delete', id, '--backup-dir', fx.backups]);
       expect(del.code, 0, reason: del.err);
-    }
-  });
+    });
+  }
 
   test('restore closing hint has no --backup-dir when none was given', () async {
     final repo = await fx.makeRepo('root/repo');
@@ -122,11 +127,13 @@ void main() {
     final env = {...fx.env, 'WORKTREE_SHELVE_BACKUP_DIR': fx.backups};
     final run = await fx.cli(['scan', '--root', '${fx.base}/root', '--apply', '--json'], envOverride: env);
     expect(run.code, 0, reason: run.err);
-    final id = Fixture.item(run.json, '/wt/def')['backup_id'] as String;
+    final item = Fixture.item(run.json, '/wt/def');
+    expect(item['backup_id'], isA<String>(), reason: '$item');
+    final id = item['backup_id'] as String;
     final restore = await fx.cli(['restore', id], envOverride: env);
     expect(restore.code, 0, reason: restore.err);
     final last = restore.out.trim().split('\n').last;
-    expect(last, endsWith('worktree-shelve backups --delete $id'));
+    expect(last, endsWith('worktree-shelve backups --delete $id'), reason: 'full output:\n${restore.out}');
     expect(last, isNot(contains('--backup-dir')));
   });
 }
