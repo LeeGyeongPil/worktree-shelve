@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.2.0
+worktree-shelve 0.2.1
 ```
 
 `dart pub global activate` 는 `worktree-shelve` 명령을 `$HOME/.pub-cache/bin` 에 둡니다. 셸이 못 찾으면 그 폴더를 `PATH` 에 추가하세요. 아래 명령은 `worktree-shelve` 가 `PATH` 에 있다고 가정합니다(clone 상태에서는 `dart run worktree_shelve` 로 바꿔 쓰세요).
@@ -148,7 +148,7 @@ git -C shelve-sandbox/worktrees/old-dirty status --short
 
 ```text
 shelve-sandbox/worktrees/old-dirty 를 feature/old-dirty 에 되살렸습니다. 변경 내용 적용함, 미추적 파일 1개, 무시 파일 1개를 되돌렸습니다.
-백업은 /path/to/bk/20261112-073500-old-dirty 에 그대로 있습니다. 필요 없으면 worktree-shelve backups --delete 20261112-073500-old-dirty 로 지우세요.
+백업은 /path/to/bk/20261112-073500-old-dirty 에 그대로 있습니다. 필요 없으면 worktree-shelve backups --delete 20261112-073500-old-dirty --backup-dir /path/to/bk 로 지우세요.
 M  README.md
  M src/app.txt
 ?? notes/

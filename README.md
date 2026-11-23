@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.2.0
+worktree-shelve 0.2.1
 ```
 
 `dart pub global activate` puts the `worktree-shelve` command in `$HOME/.pub-cache/bin`; add that folder to your `PATH` if the shell does not find it. The commands below assume `worktree-shelve` is on your `PATH` (from a clone, use `dart run worktree_shelve` instead).
@@ -148,7 +148,7 @@ git -C shelve-sandbox/worktrees/old-dirty status --short
 
 ```text
 Restored shelve-sandbox/worktrees/old-dirty on feature/old-dirty: changes applied, 1 untracked and 1 ignored file(s) put back.
-The backup stays in /path/to/bk/20261112-073444-old-dirty; delete it when you no longer need it with: worktree-shelve backups --delete 20261112-073444-old-dirty
+The backup stays in /path/to/bk/20261112-073444-old-dirty; delete it when you no longer need it with: worktree-shelve backups --delete 20261112-073444-old-dirty --backup-dir /path/to/bk
 M  README.md
  M src/app.txt
 ?? notes/

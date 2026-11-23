@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 (2026-11-24)
+
+- Fixed: the closing line of `restore` now includes `--backup-dir <path>` in the
+  `backups --delete <id>` command when you passed `--backup-dir`, so the printed command works as
+  is (English and Korean). Without `--backup-dir` the line is unchanged.
+- Full changes: https://github.com/LeeGyeongPil/worktree-shelve/compare/v0.2.0...v0.2.1
+
 ## 0.2.0 (2026-11-14)
 
 - Added: `worktree-shelve backups --delete <id>` deletes one backup. Naming the id is the
@@ -23,7 +30,7 @@
 
 ### Known issues
 
-- The closing hint of `restore` does not include `--backup-dir` when you passed it.
+- The closing hint of `restore` does not include `--backup-dir` when you passed it. (Fixed in 0.2.1.)
 - `backups --prune-older-than --apply` can print `Deleted before this: 0` in a message where the count is not meaningful.
 - The backup list display has small wording and layout rough edges.
 - `--prune-older-than` without a value gives a generic error instead of a specific one.
