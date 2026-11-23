@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.2.3';
+const toolVersion = '0.2.4';
 
 class CliContext {
   CliContext({

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4 (2026-11-24)
+
+- Fixed: a test for a partly failed worktree removal no longer depends on the file system listing order, so Linux CI passes. No change to the CLI behavior.
+
 ## 0.2.3 (2026-11-24)
 
 - Changed: CI now annotates failed tests from a JSON report, and the backup restore tests are more stable. No change to the CLI behavior.

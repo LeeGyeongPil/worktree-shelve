@@ -141,10 +141,13 @@ void main() {
   });
 
   // 같은 상황을 두 방식으로 만든다: 하위 폴더 ro/ 만 막기, 맨 위 폴더 전체 막기.
-  // 맨 위를 막으면 git 이 맨 위 파일을 하나도 못 지우므로 어느 OS 에서나 거의 아무것도 안 지워진다.
-  final blockers = <String, void Function(String)>{
-    'read-only subfolder': (path) => readOnly('$path/ro'),
-    'read-only top folder': readOnly,
+  // git 은 readdir 순서대로 지우다가 처음 실패한 곳에서 멈춘다. readdir 순서는 OS·파일 시스템마다
+  // 다르다(APFS 와 ext4 의 해시 순서가 다름). 그래서 맨 위를 막아도 git 이 아직 쓸 수 있는 ro/ 를
+  // 먼저 만나면 ro/a.txt 는 지워진다(ubuntu CI 에서 실제로 그랬다). 방식마다 순서와 관계없이
+  // 반드시 남는 파일만 단언한다 — 읽기 전용 폴더 바로 아래 파일은 지울 수 없다.
+  final blockers = <String, ({void Function(String) block, String kept})>{
+    'read-only subfolder': (block: (String path) => readOnly('$path/ro'), kept: 'ro/a.txt'),
+    'read-only top folder': (block: readOnly, kept: 'z.txt'),
   };
   for (final blocker in blockers.entries) {
   test('git stops midway (${blocker.key}): the message has the backup id and a --to restore that brings the work back',
@@ -159,7 +162,7 @@ void main() {
       ['scan', '--root', '${fx.base}/root', '--apply', '--backup-dir', fx.backups, '--log', logFile],
       // 사전 확인이 끝난 뒤, git 이 지우기 직전에 하위 폴더를 읽기 전용으로 바꾼다
       // (사전 확인 뒤에 다른 프로그램이 권한을 바꾼 상황) — git 은 일부만 지우고 멈춘다.
-      beforeRemove: blocker.value,
+      beforeRemove: blocker.value.block,
     );
     if (runningAsRoot) return;
 
@@ -167,8 +170,9 @@ void main() {
     // git 이 관리 기록을 지우고 폴더 일부를 남겼다(이 테스트가 만들려는 상황인지 먼저 확인).
     expect(await fx.porcelain(repo), isNot(contains('worktree $wt\x00')));
     expect(Directory(wt).existsSync(), isTrue);
-    // 어떤 파일이 먼저 지워졌는지는 git 의 readdir 순서(OS·파일 시스템마다 다름)에 달려 있어 단언하지 않는다.
-    expect(File('$wt/ro/a.txt').existsSync(), isTrue, reason: 'the read-only folder blocks its own files');
+    // 다른 파일이 먼저 지워졌는지는 git 의 readdir 순서(OS·파일 시스템마다 다름)에 달려 있어 단언하지 않는다.
+    final kept = blocker.value.kept;
+    expect(File('$wt/$kept').existsSync(), isTrue, reason: 'the read-only folder blocks its own files');
 
     final ids = backupEntries().map((e) => e.uri.pathSegments.where((s) => s.isNotEmpty).last).toList();
     expect(ids, hasLength(1), reason: 'the verified backup is kept');
