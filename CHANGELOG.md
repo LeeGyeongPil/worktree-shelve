@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 (2026-11-24)
+
+- Changed: CI now annotates failed tests from a JSON report, and the backup restore tests are more stable. No change to the CLI behavior.
+
 ## 0.2.2 (2026-11-24)
 
 - Fixed: an option that takes a value (such as `--backup-dir` or `--prune-older-than`) followed by another `--option` now reports `option <name> needs a value` (exit 2) instead of swallowing the next option as its value. Use `--opt=--x` for a value that really starts with `--`.

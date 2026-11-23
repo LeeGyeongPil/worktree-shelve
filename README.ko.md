@@ -44,7 +44,7 @@ dart compile exe bin/worktree_shelve.dart -o worktree-shelve
 ```
 
 ```text
-worktree-shelve 0.2.2
+worktree-shelve 0.2.3
 ```
 
 `dart pub global activate` 는 `worktree-shelve` 명령을 `$HOME/.pub-cache/bin` 에 둡니다. 셸이 못 찾으면 그 폴더를 `PATH` 에 추가하세요. 아래 명령은 `worktree-shelve` 가 `PATH` 에 있다고 가정합니다(clone 상태에서는 `dart run worktree_shelve` 로 바꿔 쓰세요).
