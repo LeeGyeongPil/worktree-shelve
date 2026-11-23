@@ -415,7 +415,7 @@ dart analyze --fatal-infos
 dart test
 ```
 
-테스트는 시스템 임시 폴더에 실제 git 저장소를 임시로 만들며 사용자의 저장소는 건드리지 않습니다. 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md), 보안 신고는 [SECURITY.md](SECURITY.md) 를 보세요.
+테스트는 시스템 임시 폴더에 실제 git 저장소를 임시로 만들며 사용자의 저장소는 건드리지 않습니다. CI 에서는 `tool/ci_annotate.dart` 가 실패한 테스트의 JSON 리포트를 GitHub 오류 주석으로 바꿔 줍니다. 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md), 보안 신고는 [SECURITY.md](SECURITY.md) 를 보세요.
 
 ## 라이선스
 

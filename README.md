@@ -415,7 +415,7 @@ dart analyze --fatal-infos
 dart test
 ```
 
-The tests create real throwaway git repositories under the system temp folder and never touch yours. Bugs and ideas are welcome as issues. Changes are listed in [CHANGELOG.md](CHANGELOG.md). Security reports: see [SECURITY.md](SECURITY.md).
+The tests create real throwaway git repositories under the system temp folder and never touch yours. In CI, `tool/ci_annotate.dart` turns a failed test run's JSON report into GitHub error annotations. Bugs and ideas are welcome as issues. Changes are listed in [CHANGELOG.md](CHANGELOG.md). Security reports: see [SECURITY.md](SECURITY.md).
 
 ## License
 
