@@ -62,6 +62,30 @@ void main() {
     }
   });
 
+  test('a value option followed by another option reports a missing value', () async {
+    final bk = '${fx.base}/bk-missing';
+    final cases = <(List<String>, String)>[
+      (['backups', '--backup-dir', bk, '--prune-older-than', '--lang', 'en'], '--prune-older-than'),
+      (['backups', '--prune-older-than', '--backup-dir', bk, '--lang', 'en'], '--prune-older-than'),
+      (['backups', '--backup-dir', '--json', '--lang', 'en'], '--backup-dir'),
+      (['scan', '--backup-dir', '--apply', '--lang', 'en'], '--backup-dir'),
+    ];
+    for (final (args, opt) in cases) {
+      final r = await fx.cli(args);
+      expect(r.code, 2, reason: '$args');
+      expect(r.err.trim(), 'error: option $opt needs a value', reason: '$args');
+      expect(r.out, isEmpty, reason: '$args');
+    }
+    final ko = await fx.cli(['backups', '--backup-dir', '--json', '--lang', 'ko']);
+    expect(ko.code, 2);
+    expect(ko.err.trim(), '오류: --backup-dir 옵션에 값이 필요합니다');
+    // "--opt=--x" and a single-dash value still work as values.
+    final eq = await fx.cli(['backups', '--backup-dir=$bk']);
+    expect(eq.code, 0);
+    final neg = await fx.cli(['scan', '--root', fx.base, '--days', '-1']);
+    expect(neg.err, contains('--days'));
+  });
+
   test('the error names the user path and the fix', () async {
     final r = await fx.cli(['scan', '--root', '${fx.base}/missing']);
     expect(r.err, contains('${fx.base}/missing'));

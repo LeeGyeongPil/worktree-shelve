@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.2.1';
+const toolVersion = '0.2.2';
 
 class CliContext {
   CliContext({
@@ -113,7 +113,11 @@ _Args _parse(String cmd, List<String> args,
         if (eq >= 0) {
           value = a.substring(eq + 1);
         } else {
-          if (i + 1 >= args.length) throw ShelveError('err.missing_value', {'opt': name});
+          // A following "--x" is the next option, not this option's value.
+          // (Use "--opt=--x" for a value that really starts with "--".)
+          if (i + 1 >= args.length || args[i + 1].startsWith('--')) {
+            throw ShelveError('err.missing_value', {'opt': name});
+          }
           value = args[++i];
         }
         if (value.isEmpty) throw ShelveError('err.missing_value', {'opt': name});
