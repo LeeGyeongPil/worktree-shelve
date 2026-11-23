@@ -354,7 +354,7 @@ void main() {
       final m = Messages(lang);
       expect(m.t('help'), contains('--delete'));
       expect(m.t('help'), contains('--prune-older-than'));
-      expect(m.t('restore.kept', {'dir': 'd', 'id': 'ID1'}), contains('worktree-shelve backups --delete ID1'));
+      expect(m.t('restore.kept', {'dir': 'd', 'delete': 'worktree-shelve backups --delete ID1'}), contains('worktree-shelve backups --delete ID1'));
     }
   });
 }

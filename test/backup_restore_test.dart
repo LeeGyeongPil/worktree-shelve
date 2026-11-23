@@ -94,4 +94,39 @@ void main() {
     expect(File('$target/.env.local').readAsStringSync(), 'LOCAL=1\n');
     expect((await fx.gitOut(target, ['status', '--porcelain'])).trim(), isEmpty);
   });
+
+  test('restore closing hint keeps --backup-dir and works as printed (en and ko)', () async {
+    final repo = await fx.makeRepo('root/repo');
+    for (final lang in ['en', 'ko']) {
+      final wt = await fx.addWorktree(repo, 'root/wt/$lang', branch: 'b-$lang', ageDays: null);
+      fx.b.write('$wt/src/a.txt', 'changed $lang\n');
+      await fx.age(wt, 30);
+      final run = await fx.cli(
+          ['scan', '--root', '${fx.base}/root', '--apply', '--json', '--backup-dir', fx.backups]);
+      expect(run.code, 0, reason: run.err);
+      final id = Fixture.item(run.json, '/wt/$lang')['backup_id'] as String;
+      final restore = await fx.cli(['restore', id, '--backup-dir', fx.backups, '--lang', lang]);
+      expect(restore.code, 0, reason: restore.err);
+      final last = restore.out.trim().split('\n').last;
+      expect(last, contains('worktree-shelve backups --delete $id --backup-dir ${fx.backups}'));
+      final del = await fx.cli(['backups', '--delete', id, '--backup-dir', fx.backups]);
+      expect(del.code, 0, reason: del.err);
+    }
+  });
+
+  test('restore closing hint has no --backup-dir when none was given', () async {
+    final repo = await fx.makeRepo('root/repo');
+    final wt = await fx.addWorktree(repo, 'root/wt/def', branch: 'b-def', ageDays: null);
+    fx.b.write('$wt/src/a.txt', 'changed\n');
+    await fx.age(wt, 30);
+    final env = {...fx.env, 'WORKTREE_SHELVE_BACKUP_DIR': fx.backups};
+    final run = await fx.cli(['scan', '--root', '${fx.base}/root', '--apply', '--json'], envOverride: env);
+    expect(run.code, 0, reason: run.err);
+    final id = Fixture.item(run.json, '/wt/def')['backup_id'] as String;
+    final restore = await fx.cli(['restore', id], envOverride: env);
+    expect(restore.code, 0, reason: restore.err);
+    final last = restore.out.trim().split('\n').last;
+    expect(last, endsWith('worktree-shelve backups --delete $id'));
+    expect(last, isNot(contains('--backup-dir')));
+  });
 }

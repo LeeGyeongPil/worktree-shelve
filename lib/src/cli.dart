@@ -20,7 +20,7 @@ import 'restore.dart';
 import 'sandbox.dart';
 import 'verdict.dart';
 
-const toolVersion = '0.2.0';
+const toolVersion = '0.2.1';
 
 class CliContext {
   CliContext({
@@ -212,6 +212,14 @@ void _ensureWritable(String dir) {
   } on FileSystemException {
     throw ShelveError('err.backup_dir_unwritable', {'path': dir});
   }
+}
+
+/// restore 마지막 줄의 삭제 명령(--backup-dir 를 줬으면 그대로 붙인다).
+String _deleteHint(String id, _Args p, CliContext ctx) {
+  final custom = p.values['--backup-dir'];
+  return custom == null
+      ? 'worktree-shelve backups --delete $id'
+      : 'worktree-shelve backups --delete $id --backup-dir ${_abs(custom, ctx)}';
 }
 
 String _restoreHint(String id, _Args p, CliContext ctx) {
@@ -475,7 +483,7 @@ Future<int> _restore(List<String> args, CliContext ctx, Messages m) async {
     ctx.out.writeln(m.t('restore.moved',
         {'branch': r.branch, 'sha': r.head.substring(0, 12), 'path': shown}));
   }
-  ctx.out.writeln(m.t('restore.kept', {'dir': displayPath('$backupRoot/$id', home: home), 'id': id}));
+  ctx.out.writeln(m.t('restore.kept', {'dir': displayPath('$backupRoot/$id', home: home), 'delete': _deleteHint(id, p, ctx)}));
   return 0;
 }
 

@@ -262,7 +262,7 @@ const Map<String, String> _en = {
   'restore.moved':
       'Branch {branch} has moved since the backup, so the worktree was restored at {sha} (detached). Switch with: git -C {path} switch {branch}',
   'restore.kept':
-      'The backup stays in {dir}; delete it when you no longer need it with: worktree-shelve backups --delete {id}',
+      'The backup stays in {dir}; delete it when you no longer need it with: {delete}',
   'restore.step.add': 'creating the worktree',
   'restore.step.patch': 'applying changes.patch',
   'restore.step.staged': 'restoring staged changes',
@@ -402,7 +402,7 @@ const Map<String, String> _ko = {
   'restore.moved':
       '백업 뒤에 {branch} 브랜치가 움직여서 커밋 {sha} 에 분리된 상태로 되살렸습니다. 브랜치로 옮기기: git -C {path} switch {branch}',
   'restore.kept':
-      '백업은 {dir} 에 그대로 있습니다. 필요 없으면 worktree-shelve backups --delete {id} 로 지우세요.',
+      '백업은 {dir} 에 그대로 있습니다. 필요 없으면 {delete} 로 지우세요.',
   'restore.step.add': '워크트리 만들기',
   'restore.step.patch': 'changes.patch 적용',
   'restore.step.staged': '스테이지 변경 되돌리기',
