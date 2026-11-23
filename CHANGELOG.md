@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 (2026-11-24)
+
+- Fixed: an option that takes a value (such as `--backup-dir` or `--prune-older-than`) followed by another `--option` now reports `option <name> needs a value` (exit 2) instead of swallowing the next option as its value. Use `--opt=--x` for a value that really starts with `--`.
+
 ## 0.2.1 (2026-11-24)
 
 - Fixed: the closing line of `restore` now includes `--backup-dir <path>` in the
@@ -33,7 +37,7 @@
 - The closing hint of `restore` does not include `--backup-dir` when you passed it. (Fixed in 0.2.1.)
 - `backups --prune-older-than --apply` can print `Deleted before this: 0` in a message where the count is not meaningful.
 - The backup list display has small wording and layout rough edges.
-- `--prune-older-than` without a value gives a generic error instead of a specific one.
+- `--prune-older-than` without a value gives a generic error instead of a specific one. (Fixed in 0.2.2.)
 
 ## 0.1.3 (2026-11-13)
 
